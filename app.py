@@ -289,7 +289,7 @@ inject_styles()
 st.markdown(
     """
     <div class="hero-shell">
-        <div class="hero-topline">OPEN-SOURCE ORBITAL INTELLIGENCE PLATFORM</div>
+        <div class="hero-topline"></div>
         <h1 class="hero-title">Signal Console</h1>
         <p class="hero-copy">
             A monitoring console for orbital launches, satellite activity, and strategic pattern detection.
