@@ -1440,7 +1440,7 @@ with side_col:
         <div class="panel-card">
             <div class="panel-title">Why a launch may be sensitive</div>
             <div class="panel-copy">
-                The explanations in this section now use country-aware logic and avoid false U.S. tagging caused by loose substring matching.
+                
             </div>
         </div>
         """,
