@@ -1,13 +1,17 @@
-import html
+import streamlit as st
 from datetime import datetime, timezone
 
-import streamlit as st
+st.set_page_config(
+    page_title="Signal Console",
+    page_icon="◉",
+    layout="wide",
+)
 
-
-st.set_page_config(page_title="Signal Console", layout="wide")
-
-
-PAGE_TARGETS = {
+# =========================================================
+# CONFIG
+# Update these to match your actual Streamlit page filenames
+# =========================================================
+PAGE_PATHS = {
     "launch": "pages/Launch_Intelligence.py",
     "satellite": "pages/Satellite_Watch.py",
     "strategic": "pages/Strategic_Insights.py",
@@ -15,560 +19,550 @@ PAGE_TARGETS = {
 
 STATUS_CARDS = [
     {
-        "label": "Platform status",
-        "value": "ONLINE",
-        "detail": "Core workspace, watchlists, and routing are healthy.",
-        "accent": "#39d98a",
+        "title": "Platform Status",
+        "value": "Operational",
+        "meta": "All services online",
+        "tone": "green",
     },
     {
-        "label": "Launch monitor",
-        "value": "LIVE",
-        "detail": "Upcoming windows and sensitive mission screening are active.",
-        "accent": "#38bdf8",
+        "title": "Launch Monitor",
+        "value": "Live",
+        "meta": "Tracking current launch cycle",
+        "tone": "blue",
     },
     {
-        "label": "Satellite monitor",
-        "value": "LIVE",
-        "detail": "Regional orbital sweeps and pass tracking are ready.",
-        "accent": "#58a6ff",
+        "title": "Satellite Monitor",
+        "value": "Active",
+        "meta": "Watchlists and orbital feeds updating",
+        "tone": "blue",
     },
     {
-        "label": "Strategic insights",
-        "value": "WATCH",
-        "detail": "Analyst narratives and notable-event scoring are current.",
-        "accent": "#f2cc60",
+        "title": "Strategic Insights",
+        "value": "Watch",
+        "meta": "Notable orbital patterns flagged",
+        "tone": "amber",
     },
 ]
 
 PREVIEW_CARDS = [
     {
-        "title": "Launch Activity Preview",
-        "chip": "Launches",
-        "accent": "#38bdf8",
+        "eyebrow": "Launch Activity Preview",
+        "title": "Launch cadence remains concentrated in major providers",
         "lines": [
-            "Near-term launch tempo is building across commercial and state operators.",
-            "One national-security mission profile remains elevated for analyst review.",
+            "Upcoming launch windows remain clustered around a small set of high-frequency operators.",
+            "Recent mission tempo suggests sustained orbital deployment pressure rather than isolated activity.",
         ],
-        "action": "Open launch intelligence ->",
-        "target": PAGE_TARGETS["launch"],
+        "tag": "Open module",
+        "tone": "blue",
     },
     {
-        "title": "Satellite Activity Preview",
-        "chip": "Satellites",
-        "accent": "#58a6ff",
+        "eyebrow": "Satellite Activity Preview",
+        "title": "Watchlist movement highlights sustained orbital persistence",
         "lines": [
-            "LEO traffic density remains strongest over Europe and North America in the current sweep.",
-            "Military catalogue passes are still the highest-priority watch class.",
+            "Tracked objects continue to show meaningful watchlist density across strategic orbital layers.",
+            "Coverage focus suggests persistent monitoring value rather than one-off event observation.",
         ],
-        "action": "Open satellite watch ->",
-        "target": PAGE_TARGETS["satellite"],
+        "tag": "View page",
+        "tone": "blue",
     },
     {
-        "title": "Strategic Insight Preview",
-        "chip": "Insights",
-        "accent": "#f2cc60",
+        "eyebrow": "Strategic Insight Preview",
+        "title": "Orbital behavior is best read as pattern, not headline",
         "lines": [
-            "Recent event logging clusters around surveillance posture and resilient PNT themes.",
-            "Analyst attention is centered on selective signaling rather than broad instability.",
+            "Platform synthesis indicates that launch tempo, orbital presence, and asset concentration should be interpreted together.",
+            "The most useful signal is often cumulative pressure across time, geography, and mission type.",
         ],
-        "action": "Open strategic insights ->",
-        "target": PAGE_TARGETS["strategic"],
+        "tag": "Review insights",
+        "tone": "amber",
     },
 ]
 
 MODULE_CARDS = [
     {
         "title": "Launch Intelligence",
-        "summary": "Track launch cadence, sensitive missions, and operational disruptions from one clean watchboard.",
+        "description": "Monitor upcoming launches, recent missions, and launch-pattern changes across the orbital environment.",
         "bullets": [
-            "Upcoming launch windows and site mapping",
-            "Recent failures, delays, and anomaly review",
-            "Sensitive mission screening with official context",
+            "Upcoming launch windows",
+            "Recent launch activity",
+            "Provider and mission pattern tracking",
         ],
-        "accent": "#38bdf8",
-        "action": "Enter launch intelligence",
-        "target": PAGE_TARGETS["launch"],
+        "key": "launch",
+        "tone": "blue",
     },
     {
         "title": "Satellite Watch",
-        "summary": "Monitor regional orbital activity, category-specific passes, and platform movement across regimes.",
+        "description": "Track satellite presence, watchlists, and orbital activity layers from a single operational workspace.",
         "bullets": [
-            "Regional sweeps for active satellites",
-            "Orbit regime, category, and pass filters",
-            "Map-based tracking for high-interest objects",
+            "Watchlisted orbital objects",
+            "Satellite activity views",
+            "Persistent monitoring snapshots",
         ],
-        "accent": "#58a6ff",
-        "action": "Enter satellite watch",
-        "target": PAGE_TARGETS["satellite"],
+        "key": "satellite",
+        "tone": "blue",
     },
     {
         "title": "Strategic Insights",
-        "summary": "Move from raw signals to narrative understanding with country trends, event filters, and analyst framing.",
+        "description": "Translate raw orbital signals into higher-level strategic interpretation and notable pattern detection.",
         "bullets": [
-            "Country-level trend comparisons",
-            "Sensitive-event filters and summary scoring",
-            "Narrative insights for rapid analyst orientation",
+            "Cross-module signal synthesis",
+            "Strategic pattern summaries",
+            "Notable orbital developments",
         ],
-        "accent": "#f2cc60",
-        "action": "Enter strategic insights",
-        "target": PAGE_TARGETS["strategic"],
+        "key": "strategic",
+        "tone": "amber",
     },
 ]
 
 
-def inject_styles() -> None:
+def inject_styles():
     st.markdown(
         """
         <style>
             :root {
-                --bg-0: #060b12;
-                --bg-1: #0a121c;
-                --bg-2: #101a27;
-                --panel-0: rgba(10, 18, 28, 0.88);
-                --panel-1: rgba(15, 26, 39, 0.92);
-                --panel-2: rgba(18, 32, 48, 0.96);
-                --stroke: rgba(116, 144, 171, 0.20);
-                --stroke-strong: rgba(129, 164, 199, 0.34);
-                --text-main: #f4f7fb;
-                --text-soft: #95a8be;
-                --text-dim: #71859a;
-                --green: #39d98a;
-                --blue: #38bdf8;
-                --blue-2: #58a6ff;
-                --amber: #f2cc60;
-                --red: #ff6b6b;
-                --shadow: rgba(2, 8, 18, 0.46);
-            }
+                --bg-0: #04070d;
+                --bg-1: #08111d;
+                --bg-2: #0c1725;
+                --panel: rgba(11, 20, 32, 0.84);
+                --panel-strong: rgba(10, 18, 30, 0.94);
+                --stroke: rgba(126, 154, 184, 0.18);
+                --stroke-strong: rgba(126, 154, 184, 0.28);
 
-            html, body, [class*="css"]  {
-                font-family: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+                --text-main: #edf4ff;
+                --text-soft: #8fa5bf;
+                --text-muted: #6d8298;
+
+                --blue: #4ea1ff;
+                --blue-soft: rgba(78, 161, 255, 0.16);
+
+                --green: #45d483;
+                --green-soft: rgba(69, 212, 131, 0.16);
+
+                --amber: #ffbe55;
+                --amber-soft: rgba(255, 190, 85, 0.16);
+
+                --red: #ff5f5f;
+                --red-soft: rgba(255, 95, 95, 0.16);
             }
 
             .stApp {
                 background:
-                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 24%),
-                    radial-gradient(circle at 85% 10%, rgba(88, 166, 255, 0.10), transparent 20%),
-                    radial-gradient(circle at 50% 0%, rgba(57, 217, 138, 0.05), transparent 28%),
-                    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 45%, #0d1723 100%);
+                    radial-gradient(circle at 12% 0%, rgba(78, 161, 255, 0.10), transparent 24%),
+                    radial-gradient(circle at 88% 10%, rgba(69, 212, 131, 0.05), transparent 20%),
+                    linear-gradient(180deg, #06101b 0%, #04070d 100%);
                 color: var(--text-main);
-            }
-
-            .stApp::before {
-                content: "";
-                position: fixed;
-                inset: 0;
-                pointer-events: none;
-                background-image:
-                    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-                background-size: 120px 120px;
-                mask-image: linear-gradient(180deg, rgba(0,0,0,0.34), transparent 78%);
-                opacity: 0.22;
-            }
-
-            [data-testid="stHeader"] {
-                background: transparent;
             }
 
             .block-container {
-                max-width: 1340px;
-                padding-top: 1.2rem;
-                padding-bottom: 3rem;
+                max-width: 1380px;
+                padding-top: 2rem;
+                padding-bottom: 2rem;
             }
 
-            [data-testid="stSidebar"] {
-                background: linear-gradient(180deg, rgba(8, 14, 24, 0.98), rgba(10, 18, 28, 0.94));
-                border-right: 1px solid var(--stroke);
+            .home-section-label {
+                font-size: 0.72rem;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                color: var(--text-muted);
+                margin-bottom: 0.65rem;
             }
 
-            [data-testid="stSidebar"] * {
-                color: var(--text-main);
-            }
-
-            .hero-card,
-            .hero-side-card,
-            .status-card,
-            .preview-card,
-            .module-card,
-            .purpose-card {
-                border: 1px solid var(--stroke);
-                box-shadow: 0 24px 46px var(--shadow);
-            }
-
-            .hero-card,
-            .hero-side-card {
-                min-height: 100%;
-                border-radius: 24px;
-                background:
-                    linear-gradient(150deg, rgba(15, 27, 41, 0.98), rgba(8, 16, 25, 0.96)),
-                    linear-gradient(180deg, var(--panel-0), var(--panel-1));
-            }
-
-            .hero-card {
-                padding: 1.65rem 1.7rem;
+            .hero-shell {
                 position: relative;
                 overflow: hidden;
+                border: 1px solid var(--stroke);
+                border-radius: 24px;
+                padding: 1.55rem 1.55rem 1.4rem 1.55rem;
+                background:
+                    linear-gradient(180deg, rgba(15, 27, 43, 0.92) 0%, rgba(8, 14, 22, 0.96) 100%);
+                box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.03),
+                    0 0 0 1px rgba(255,255,255,0.02),
+                    0 24px 60px rgba(0,0,0,0.34);
             }
 
-            .hero-card::after {
+            .hero-shell::before {
                 content: "";
                 position: absolute;
-                width: 220px;
-                height: 220px;
-                right: -48px;
-                top: -72px;
-                background: radial-gradient(circle, rgba(56, 189, 248, 0.22), transparent 68%);
+                inset: 0;
+                background:
+                    radial-gradient(circle at top left, rgba(78, 161, 255, 0.16), transparent 30%),
+                    linear-gradient(90deg, rgba(78, 161, 255, 0.06), transparent 35%, transparent 65%, rgba(69, 212, 131, 0.04));
                 pointer-events: none;
             }
 
-            .hero-side-card {
-                padding: 1.2rem 1.25rem;
-            }
-
-            .eyebrow {
-                font-family: "Consolas", "Aptos Mono", monospace;
-                font-size: 0.72rem;
-                font-weight: 700;
-                letter-spacing: 0.18rem;
-                text-transform: uppercase;
-                color: #7ed6ff;
-                margin-bottom: 0.7rem;
-            }
-
-            .hero-title {
-                font-family: "Bahnschrift", "Aptos Display", "Segoe UI Variable", sans-serif;
-                font-size: 3rem;
-                line-height: 0.96;
-                font-weight: 700;
-                margin: 0;
-                color: var(--text-main);
-                max-width: 10ch;
-            }
-
-            .hero-descriptor {
-                margin-top: 0.8rem;
-                font-size: 1.02rem;
-                color: #dbe9f7;
-                font-weight: 600;
-                letter-spacing: 0.01rem;
-            }
-
-            .hero-copy {
-                margin: 0.75rem 0 1rem 0;
-                max-width: 58rem;
-                font-size: 0.98rem;
-                line-height: 1.6;
-                color: var(--text-soft);
-            }
-
-            .tag-row {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.55rem;
-                margin-top: 1rem;
-            }
-
-            .tag-chip {
+            .hero-topline {
+                position: relative;
+                z-index: 1;
                 display: inline-flex;
                 align-items: center;
-                gap: 0.45rem;
-                padding: 0.45rem 0.72rem;
-                border-radius: 999px;
-                border: 1px solid rgba(126, 214, 255, 0.16);
-                background: rgba(10, 23, 36, 0.74);
-                color: #d7e9f7;
-                font-size: 0.82rem;
-                font-weight: 600;
-            }
-
-            .tag-dot {
-                width: 8px;
-                height: 8px;
-                border-radius: 999px;
-                background: currentColor;
-                box-shadow: 0 0 16px currentColor;
-            }
-
-            .side-title {
-                font-size: 0.95rem;
-                font-weight: 700;
-                color: var(--text-main);
-                margin-bottom: 0.2rem;
-            }
-
-            .side-copy {
-                font-size: 0.88rem;
-                line-height: 1.5;
-                color: var(--text-soft);
-                margin-bottom: 1rem;
-            }
-
-            .side-row {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 1rem;
-                padding: 0.72rem 0;
-                border-top: 1px solid rgba(129, 164, 199, 0.12);
-            }
-
-            .side-row:first-of-type {
-                border-top: 0;
-                padding-top: 0.15rem;
-            }
-
-            .side-label {
-                font-family: "Consolas", "Aptos Mono", monospace;
-                font-size: 0.76rem;
-                letter-spacing: 0.08rem;
-                text-transform: uppercase;
-                color: var(--text-dim);
-            }
-
-            .side-value {
-                font-size: 0.88rem;
-                font-weight: 700;
-                color: var(--text-main);
-                text-align: right;
-            }
-
-            .section-head {
-                margin: 1.55rem 0 0.95rem 0;
-            }
-
-            .section-label {
-                font-family: "Consolas", "Aptos Mono", monospace;
-                font-size: 0.72rem;
-                font-weight: 700;
-                letter-spacing: 0.18rem;
-                text-transform: uppercase;
-                color: #87d8ff;
-                margin-bottom: 0.35rem;
-            }
-
-            .section-title {
-                font-family: "Bahnschrift", "Aptos Display", "Segoe UI Variable", sans-serif;
-                font-size: 1.45rem;
-                font-weight: 700;
-                color: var(--text-main);
-                margin: 0;
-            }
-
-            .section-copy {
-                margin-top: 0.35rem;
-                font-size: 0.93rem;
-                line-height: 1.55;
-                color: var(--text-soft);
-                max-width: 56rem;
-            }
-
-            .status-card {
-                border-radius: 18px;
-                background: linear-gradient(180deg, rgba(13, 24, 36, 0.96), rgba(11, 20, 30, 0.92));
-                padding: 1rem 1rem 0.95rem 1rem;
-                min-height: 150px;
-            }
-
-            .status-topline {
-                display: flex;
-                align-items: center;
                 gap: 0.55rem;
-                margin-bottom: 0.85rem;
+                border: 1px solid rgba(126, 154, 184, 0.18);
+                background: rgba(255,255,255,0.02);
+                color: var(--text-soft);
+                border-radius: 999px;
+                padding: 0.42rem 0.8rem;
+                font-size: 0.74rem;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
             }
 
             .status-dot {
-                width: 10px;
-                height: 10px;
-                border-radius: 999px;
-                box-shadow: 0 0 18px currentColor;
-                flex: 0 0 auto;
-            }
-
-            .status-label {
-                font-size: 0.82rem;
-                text-transform: uppercase;
-                letter-spacing: 0.1rem;
-                color: var(--text-dim);
-                font-weight: 700;
-            }
-
-            .status-value {
-                font-family: "Bahnschrift", "Aptos Display", sans-serif;
-                font-size: 1.75rem;
-                font-weight: 700;
-                line-height: 1;
-                margin-bottom: 0.45rem;
-                color: var(--text-main);
-            }
-
-            .status-detail {
-                font-size: 0.92rem;
-                line-height: 1.52;
-                color: var(--text-soft);
-            }
-
-            .preview-card,
-            .module-card,
-            .purpose-card {
-                background: linear-gradient(180deg, rgba(12, 22, 33, 0.96), rgba(11, 18, 28, 0.94));
-            }
-
-            .preview-card {
-                border-radius: 20px;
-                padding: 1rem 1rem 0.95rem 1rem;
-                min-height: 228px;
-                margin-bottom: 0.55rem;
-            }
-
-            .module-card {
-                border-radius: 22px;
-                padding: 1.15rem 1.15rem 1rem 1.15rem;
-                min-height: 282px;
-                margin-bottom: 0.55rem;
-            }
-
-            .purpose-card {
-                border-radius: 22px;
-                padding: 1.2rem 1.25rem;
-            }
-
-            .chip {
-                display: inline-flex;
-                align-items: center;
-                padding: 0.28rem 0.62rem;
-                border-radius: 999px;
-                font-size: 0.74rem;
-                font-weight: 700;
-                letter-spacing: 0.06rem;
-                text-transform: uppercase;
-                color: #f7fbff;
-                margin-bottom: 0.85rem;
-            }
-
-            .card-title {
-                font-size: 1.02rem;
-                font-weight: 700;
-                color: var(--text-main);
-                margin-bottom: 0.55rem;
-            }
-
-            .card-line {
-                font-size: 0.92rem;
-                line-height: 1.52;
-                color: var(--text-soft);
-                margin-bottom: 0.55rem;
-            }
-
-            .module-topline {
-                display: flex;
-                align-items: baseline;
-                justify-content: space-between;
-                gap: 1rem;
-                margin-bottom: 0.7rem;
-            }
-
-            .module-name {
-                font-size: 1.08rem;
-                font-weight: 700;
-                color: var(--text-main);
-            }
-
-            .module-code {
-                font-family: "Consolas", "Aptos Mono", monospace;
-                font-size: 0.76rem;
-                letter-spacing: 0.08rem;
-                color: var(--text-dim);
-                text-transform: uppercase;
-            }
-
-            .module-summary {
-                font-size: 0.93rem;
-                line-height: 1.58;
-                color: var(--text-soft);
-                margin-bottom: 0.9rem;
-            }
-
-            .module-item {
-                position: relative;
-                padding-left: 1rem;
-                margin-bottom: 0.55rem;
-                font-size: 0.9rem;
-                line-height: 1.48;
-                color: #dbe5ef;
-            }
-
-            .module-item::before {
-                content: "";
-                position: absolute;
-                left: 0;
-                top: 0.48rem;
-                width: 6px;
-                height: 6px;
-                border-radius: 999px;
-                background: currentColor;
+                width: 0.52rem;
+                height: 0.52rem;
+                border-radius: 50%;
+                display: inline-block;
                 box-shadow: 0 0 12px currentColor;
             }
 
-            .purpose-title {
-                font-size: 1rem;
+            .status-green { color: var(--green); background: var(--green); }
+            .status-blue { color: var(--blue); background: var(--blue); }
+            .status-amber { color: var(--amber); background: var(--amber); }
+            .status-red { color: var(--red); background: var(--red); }
+
+            .hero-grid {
+                position: relative;
+                z-index: 1;
+                display: grid;
+                grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+                gap: 1rem;
+                align-items: end;
+                margin-top: 1rem;
+            }
+
+            .hero-title {
+                margin: 0;
+                font-size: clamp(2.2rem, 4vw, 3.4rem);
+                line-height: 0.98;
                 font-weight: 700;
                 color: var(--text-main);
+                letter-spacing: -0.04em;
+            }
+
+            .hero-subtitle {
+                margin-top: 0.6rem;
+                font-size: 0.95rem;
+                color: #b6c8dc;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+
+            .hero-copy {
+                margin-top: 1rem;
+                max-width: 52rem;
+                color: var(--text-soft);
+                font-size: 1rem;
+                line-height: 1.6;
+            }
+
+            .hero-meta {
+                display: flex;
+                flex-direction: column;
+                gap: 0.75rem;
+                border-left: 1px solid rgba(126, 154, 184, 0.14);
+                padding-left: 1rem;
+                min-height: 100%;
+                justify-content: end;
+            }
+
+            .hero-meta-card {
+                border: 1px solid rgba(126, 154, 184, 0.15);
+                background: rgba(255,255,255,0.025);
+                border-radius: 18px;
+                padding: 0.9rem 1rem;
+            }
+
+            .hero-meta-label {
+                color: var(--text-muted);
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
                 margin-bottom: 0.35rem;
             }
 
-            .purpose-copy {
-                font-size: 0.94rem;
-                line-height: 1.6;
-                color: var(--text-soft);
-                max-width: 64rem;
-                margin: 0;
-            }
-
-            div[data-testid="stPageLink"],
-            div[data-testid="stButton"] {
-                width: 100%;
-            }
-
-            div[data-testid="stPageLink"] a,
-            a[data-testid="stPageLink-NavLink"],
-            div[data-testid="stButton"] > button {
-                width: 100%;
-                min-height: 2.9rem;
-                border-radius: 14px;
-                border: 1px solid var(--stroke-strong);
-                background: linear-gradient(180deg, rgba(18, 33, 49, 0.94), rgba(10, 20, 30, 0.98));
+            .hero-meta-value {
                 color: var(--text-main);
-                box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
-                text-decoration: none;
-                transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+                font-size: 1.15rem;
+                font-weight: 600;
             }
 
-            div[data-testid="stPageLink"] a:hover,
-            a[data-testid="stPageLink-NavLink"]:hover,
-            div[data-testid="stButton"] > button:hover {
-                border-color: rgba(126, 214, 255, 0.48);
-                background: linear-gradient(180deg, rgba(20, 38, 58, 0.98), rgba(12, 23, 34, 0.99));
-                color: #ffffff;
-                transform: translateY(-1px);
+            .hero-meta-caption {
+                color: var(--text-soft);
+                font-size: 0.85rem;
+                margin-top: 0.25rem;
             }
 
-            div[data-testid="stPageLink"] a p,
-            a[data-testid="stPageLink-NavLink"] p,
-            div[data-testid="stButton"] > button p {
-                color: inherit;
+            .panel-card {
+                position: relative;
+                overflow: hidden;
+                min-height: 132px;
+                border: 1px solid var(--stroke);
+                background:
+                    linear-gradient(180deg, rgba(12, 20, 32, 0.92) 0%, rgba(8, 14, 22, 0.98) 100%);
+                border-radius: 20px;
+                padding: 1rem 1rem 0.95rem 1rem;
+                box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.02),
+                    0 14px 38px rgba(0,0,0,0.22);
+            }
+
+            .panel-card::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
+                opacity: 0.5;
+            }
+
+            .tone-blue { box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 14px 38px rgba(0,0,0,0.22), 0 0 0 1px rgba(78, 161, 255, 0.03); }
+            .tone-green { box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 14px 38px rgba(0,0,0,0.22), 0 0 0 1px rgba(69, 212, 131, 0.03); }
+            .tone-amber { box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 14px 38px rgba(0,0,0,0.22), 0 0 0 1px rgba(255, 190, 85, 0.03); }
+            .tone-red { box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 14px 38px rgba(0,0,0,0.22), 0 0 0 1px rgba(255, 95, 95, 0.03); }
+
+            .panel-top {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 0.8rem;
+                margin-bottom: 0.65rem;
+            }
+
+            .panel-label {
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.11em;
+                font-size: 0.72rem;
+            }
+
+            .panel-value {
+                color: var(--text-main);
                 font-weight: 700;
-                letter-spacing: 0.01rem;
+                font-size: 1.22rem;
+                margin-top: 0.2rem;
+                line-height: 1.05;
+            }
+
+            .panel-meta {
+                color: var(--text-soft);
+                font-size: 0.9rem;
+                line-height: 1.45;
+            }
+
+            .tone-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.38rem;
+                border-radius: 999px;
+                padding: 0.35rem 0.62rem;
+                font-size: 0.7rem;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                border: 1px solid transparent;
+                white-space: nowrap;
+            }
+
+            .pill-blue  { background: var(--blue-soft); border-color: rgba(78,161,255,0.20); color: #91c4ff; }
+            .pill-green { background: var(--green-soft); border-color: rgba(69,212,131,0.20); color: #8de1b4; }
+            .pill-amber { background: var(--amber-soft); border-color: rgba(255,190,85,0.20); color: #ffd18a; }
+            .pill-red   { background: var(--red-soft); border-color: rgba(255,95,95,0.20); color: #ffadad; }
+
+            .section-header {
+                display: flex;
+                align-items: end;
+                justify-content: space-between;
+                gap: 1rem;
+                margin: 0.15rem 0 0.9rem 0;
+            }
+
+            .section-title {
+                font-size: 1.22rem;
+                font-weight: 650;
+                color: var(--text-main);
+                margin: 0;
+                letter-spacing: -0.02em;
+            }
+
+            .section-copy {
+                color: var(--text-soft);
+                font-size: 0.94rem;
+                margin: 0.2rem 0 0 0;
+                max-width: 60rem;
+            }
+
+            .preview-card {
+                min-height: 210px;
+            }
+
+            .preview-eyebrow {
+                color: var(--text-muted);
+                font-size: 0.72rem;
+                letter-spacing: 0.11em;
+                text-transform: uppercase;
+                margin-bottom: 0.6rem;
+            }
+
+            .preview-title {
+                color: var(--text-main);
+                font-size: 1.05rem;
+                font-weight: 650;
+                line-height: 1.35;
+                margin-bottom: 0.85rem;
+            }
+
+            .preview-line {
+                color: var(--text-soft);
+                font-size: 0.92rem;
+                line-height: 1.5;
+                margin-bottom: 0.5rem;
+            }
+
+            .preview-cta {
+                margin-top: 1rem;
+                color: var(--text-main);
+                font-size: 0.82rem;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.45rem;
+            }
+
+            .preview-cta span {
+                color: var(--text-muted);
+            }
+
+            .module-card {
+                min-height: 250px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                margin-bottom: 0.7rem;
+            }
+
+            .module-title {
+                color: var(--text-main);
+                font-size: 1.18rem;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                margin-bottom: 0.55rem;
+            }
+
+            .module-copy {
+                color: var(--text-soft);
+                font-size: 0.93rem;
+                line-height: 1.55;
+                margin-bottom: 1rem;
+            }
+
+            .module-list {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+                display: grid;
+                gap: 0.5rem;
+            }
+
+            .module-list li {
+                display: flex;
+                align-items: center;
+                gap: 0.55rem;
+                color: #c5d4e4;
+                font-size: 0.9rem;
+            }
+
+            .module-list li::before {
+                content: "";
+                width: 0.34rem;
+                height: 0.34rem;
+                border-radius: 50%;
+                background: var(--blue);
+                box-shadow: 0 0 8px rgba(78,161,255,0.6);
+                flex: 0 0 auto;
+            }
+
+            .module-footer {
+                margin-top: 1.2rem;
+                padding-top: 0.95rem;
+                border-top: 1px solid rgba(126, 154, 184, 0.12);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .module-affordance {
+                color: var(--text-main);
+                font-size: 0.82rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+            }
+
+            .purpose-panel {
+                border: 1px solid var(--stroke);
+                border-radius: 20px;
+                background: linear-gradient(180deg, rgba(11, 19, 30, 0.92) 0%, rgba(8, 14, 22, 0.98) 100%);
+                padding: 1.15rem 1.15rem 1.1rem 1.15rem;
+            }
+
+            .purpose-label {
+                color: var(--text-muted);
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                margin-bottom: 0.45rem;
+            }
+
+            .purpose-text {
+                color: var(--text-soft);
+                font-size: 0.96rem;
+                line-height: 1.65;
+                max-width: 70rem;
+            }
+
+            div[data-testid="stPageLink"] {
+                width: 100%;
+            }
+
+            div[data-testid="stPageLink"] a {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-decoration: none !important;
+                border-radius: 14px;
+                border: 1px solid rgba(126, 154, 184, 0.16);
+                background: rgba(255,255,255,0.03);
+                color: var(--text-main) !important;
+                min-height: 2.8rem;
+                font-weight: 600;
+                letter-spacing: 0.01em;
+                transition: all 0.18s ease;
+            }
+
+            div[data-testid="stPageLink"] a:hover {
+                border-color: rgba(126, 154, 184, 0.30);
+                background: rgba(255,255,255,0.05);
+                transform: translateY(-1px);
+                box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+            }
+
+            div[data-testid="stPageLink"] p {
+                color: var(--text-main) !important;
+                font-size: 0.94rem !important;
+                font-weight: 600 !important;
+                margin: 0 !important;
             }
 
             @media (max-width: 980px) {
-                .hero-title {
-                    font-size: 2.45rem;
+                .hero-grid {
+                    grid-template-columns: 1fr;
                 }
 
-                .preview-card,
-                .module-card,
-                .status-card {
-                    min-height: 0;
+                .hero-meta {
+                    border-left: none;
+                    padding-left: 0;
                 }
             }
         </style>
@@ -577,193 +571,193 @@ def inject_styles() -> None:
     )
 
 
-def render_section_head(label: str, title: str, copy: str) -> None:
-    st.markdown(
-        f"""
-        <div class="section-head">
-            <div class="section-label">{html.escape(label)}</div>
-            <h2 class="section-title">{html.escape(title)}</h2>
-            <div class="section-copy">{html.escape(copy)}</div>
+def tone_pill(tone: str, label: str) -> str:
+    pill_class = {
+        "blue": "pill-blue",
+        "green": "pill-green",
+        "amber": "pill-amber",
+        "red": "pill-red",
+    }.get(tone, "pill-blue")
+
+    dot_class = {
+        "blue": "status-blue",
+        "green": "status-green",
+        "amber": "status-amber",
+        "red": "status-red",
+    }.get(tone, "status-blue")
+
+    return f"""
+        <div class="tone-pill {pill_class}">
+            <span class="status-dot {dot_class}"></span>
+            {label}
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    """
 
 
-def render_status_card(label: str, value: str, detail: str, accent: str) -> None:
+def render_hero():
+    current_utc = datetime.now(timezone.utc).strftime("%d %b %Y • %H:%M UTC")
+
     st.markdown(
         f"""
-        <div class="status-card">
-            <div class="status-topline">
-                <span class="status-dot" style="color:{accent}; background:{accent};"></span>
-                <span class="status-label">{html.escape(label)}</span>
+        <div class="hero-shell">
+            <div class="hero-topline">
+                <span class="status-dot status-green"></span>
+                Command Home • Internal Workspace
             </div>
-            <div class="status-value">{html.escape(value)}</div>
-            <div class="status-detail">{html.escape(detail)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
+            <div class="hero-grid">
+                <div>
+                    <h1 class="hero-title">Signal Console</h1>
+                    <div class="hero-subtitle">Open-source orbital intelligence platform</div>
+                    <div class="hero-copy">
+                        Monitor launches, satellite activity, and strategic orbital patterns from one
+                        operational workspace built for fast situational understanding and clear navigation.
+                    </div>
+                </div>
 
-def render_preview_card(title: str, chip: str, accent: str, lines: list[str]) -> None:
-    lines_html = "".join(f'<div class="card-line">{html.escape(line)}</div>' for line in lines)
-    st.markdown(
-        f"""
-        <div class="preview-card">
-            <div class="chip" style="background:{accent};">{html.escape(chip)}</div>
-            <div class="card-title">{html.escape(title)}</div>
-            {lines_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_module_card(title: str, summary: str, bullets: list[str], accent: str, code: str) -> None:
-    bullet_html = "".join(
-        f'<div class="module-item" style="color:{accent};"><span style="color:#dbe5ef;">{html.escape(bullet)}</span></div>'
-        for bullet in bullets
-    )
-    st.markdown(
-        f"""
-        <div class="module-card">
-            <div class="module-topline">
-                <div class="module-name">{html.escape(title)}</div>
-                <div class="module-code">{html.escape(code)}</div>
+                <div class="hero-meta">
+                    <div class="hero-meta-card">
+                        <div class="hero-meta-label">Workspace posture</div>
+                        <div class="hero-meta-value">Live orbital monitoring environment</div>
+                        <div class="hero-meta-caption">Designed for overview first, module depth second.</div>
+                    </div>
+                    <div class="hero-meta-card">
+                        <div class="hero-meta-label">System time</div>
+                        <div class="hero-meta-value">{current_utc}</div>
+                        <div class="hero-meta-caption">Signals, previews, and routing from a unified front door.</div>
+                    </div>
+                </div>
             </div>
-            <div class="module-summary">{html.escape(summary)}</div>
-            {bullet_html}
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def render_page_action(label: str, target: str, key: str) -> None:
-    if hasattr(st, "page_link"):
-        st.page_link(target, label=label)
-        return
+def render_status_row():
+    st.markdown('<div class="home-section-label">Overview</div>', unsafe_allow_html=True)
 
-    if st.button(label, key=key, use_container_width=True):
-        if hasattr(st, "switch_page"):
-            st.switch_page(target)
-        else:
-            st.session_state["signal_console_nav_fallback"] = True
+    cols = st.columns(4, gap="medium")
+    for col, card in zip(cols, STATUS_CARDS):
+        with col:
+            st.markdown(
+                f"""
+                <div class="panel-card tone-{card['tone']}">
+                    <div class="panel-top">
+                        <div>
+                            <div class="panel-label">{card['title']}</div>
+                            <div class="panel-value">{card['value']}</div>
+                        </div>
+                        {tone_pill(card['tone'], card['value'])}
+                    </div>
+                    <div class="panel-meta">{card['meta']}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
+def render_preview_section():
+    st.markdown(
+        """
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Intelligence Snapshot</h2>
+                <p class="section-copy">
+                    Concise previews from the platform’s three core modules. Enough to orient the user,
+                    not enough to replace the deeper pages.
+                </p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3, gap="medium")
+    for col, card in zip(cols, PREVIEW_CARDS):
+        with col:
+            lines_html = "".join([f'<div class="preview-line">{line}</div>' for line in card["lines"]])
+            st.markdown(
+                f"""
+                <div class="panel-card preview-card tone-{card['tone']}">
+                    <div class="preview-eyebrow">{card['eyebrow']}</div>
+                    <div class="preview-title">{card['title']}</div>
+                    {lines_html}
+                    <div class="preview-cta">{card['tag']} <span>→</span></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
+def render_module_navigation():
+    st.markdown(
+        """
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Modules</h2>
+                <p class="section-copy">
+                    Enter the core workspaces for deeper operational detail.
+                </p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3, gap="medium")
+    for col, card in zip(cols, MODULE_CARDS):
+        with col:
+            bullets = "".join([f"<li>{item}</li>" for item in card["bullets"]])
+
+            st.markdown(
+                f"""
+                <div class="panel-card module-card tone-{card['tone']}">
+                    <div>
+                        <div class="module-title">{card['title']}</div>
+                        <div class="module-copy">{card['description']}</div>
+                        <ul class="module-list">
+                            {bullets}
+                        </ul>
+                    </div>
+                    <div class="module-footer">
+                        <div class="module-affordance">Open module</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.page_link(
+                PAGE_PATHS[card["key"]],
+                label=f"Go to {card['title']}",
+            )
+
+
+def render_purpose():
+    st.markdown(
+        """
+        <div class="purpose-panel">
+            <div class="purpose-label">Platform Purpose</div>
+            <div class="purpose-text">
+                Signal Console is a command-style orbital intelligence workspace built to help users
+                move from quick orientation to deeper analysis. The home screen gives a fast operational
+                read on launches, satellites, and strategic orbital patterns, then routes the user into
+                the modules where real depth lives.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 inject_styles()
-
-as_of_text = datetime.now(timezone.utc).strftime("%d %b %Y | %H:%M UTC")
-
-hero_left, hero_right = st.columns([1.85, 1], gap="large")
-
-with hero_left:
-    st.markdown(
-        """
-        <div class="hero-card">
-            <div class="eyebrow">Orbital Intelligence Workspace</div>
-            <h1 class="hero-title">Signal Console</h1>
-            <div class="hero-descriptor">Open-source orbital intelligence platform</div>
-            <p class="hero-copy">
-                Monitor launches, satellite activity, and strategic orbital patterns from one command workspace built for
-                fast analyst orientation and deliberate module handoff.
-            </p>
-            <div class="tag-row">
-                <span class="tag-chip" style="color:#39d98a;"><span class="tag-dot"></span>Platform online</span>
-                <span class="tag-chip" style="color:#38bdf8;"><span class="tag-dot"></span>Launches</span>
-                <span class="tag-chip" style="color:#58a6ff;"><span class="tag-dot"></span>Satellites</span>
-                <span class="tag-chip" style="color:#f2cc60;"><span class="tag-dot"></span>Strategic insights</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with hero_right:
-    st.markdown(
-        f"""
-        <div class="hero-side-card">
-            <div class="eyebrow">Console Brief</div>
-            <div class="side-title">Front-door view for the orbital stack</div>
-            <div class="side-copy">Small, live-feeling previews point analysts into the right deeper workspace without turning the homepage into a dashboard.</div>
-            <div class="side-row">
-                <div class="side-label">Scope</div>
-                <div class="side-value">Orbital only</div>
-            </div>
-            <div class="side-row">
-                <div class="side-label">Modules</div>
-                <div class="side-value">3 active pages</div>
-            </div>
-            <div class="side-row">
-                <div class="side-label">Refresh</div>
-                <div class="side-value">Preview cadence enabled</div>
-            </div>
-            <div class="side-row">
-                <div class="side-label">As of</div>
-                <div class="side-value">{html.escape(as_of_text)}</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-if st.session_state.get("signal_console_nav_fallback"):
-    st.info("Direct page routing is not available in this Streamlit runtime. Use the sidebar to open each module.")
-
-render_section_head(
-    "Overview",
-    "Operational status at a glance",
-    "A quick health read for the platform and the three primary orbital modules.",
-)
-
-status_columns = st.columns(4, gap="medium")
-for column, card in zip(status_columns, STATUS_CARDS):
-    with column:
-        render_status_card(card["label"], card["value"], card["detail"], card["accent"])
-
-render_section_head(
-    "Live Preview",
-    "Small signals before you go deeper",
-    "These cards suggest where activity is building and give a fast path into the detailed pages.",
-)
-
-preview_columns = st.columns(3, gap="large")
-for index, (column, card) in enumerate(zip(preview_columns, PREVIEW_CARDS), start=1):
-    with column:
-        render_preview_card(card["title"], card["chip"], card["accent"], card["lines"])
-        render_page_action(card["action"], card["target"], f"preview_action_{index}")
-
-render_section_head(
-    "Modules",
-    "Choose the workspace you need next",
-    "Navigation-first cards route into the deeper modules with just enough context to guide the next click.",
-)
-
-module_columns = st.columns(3, gap="large")
-for index, (column, card) in enumerate(zip(module_columns, MODULE_CARDS), start=1):
-    with column:
-        render_module_card(card["title"], card["summary"], card["bullets"], card["accent"], f"/0{index}")
-        render_page_action(card["action"], card["target"], f"module_action_{index}")
-
-st.markdown(
-    """
-    <div style="height: 1.15rem;"></div>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    """
-    <div class="purpose-card">
-        <div class="section-label" style="margin-bottom:0.5rem;">Platform purpose</div>
-        <div class="purpose-title">One command home screen for orbital intelligence</div>
-        <p class="purpose-copy">
-            Signal Console consolidates open-source launch monitoring, satellite watch, and strategic interpretation into
-            a single operational front door so analysts can orient fast, spot what matters, and enter the right module
-            with minimal friction.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+render_hero()
+st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+render_status_row()
+st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+render_preview_section()
+st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+render_module_navigation()
+st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+render_purpose()
