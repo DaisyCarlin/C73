@@ -15,7 +15,7 @@ from sgp4.api import Satrec, jday
 from streamlit_folium import st_folium
 from urllib3.util.retry import Retry
 
-st.set_page_config(page_title="Military Space Watch", layout="wide")
+st.set_page_config(page_title="Strategic Space Watch", layout="wide")
 
 SPACE_TRACK_LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
 SPACE_TRACK_GP_URL = (
@@ -41,33 +41,7 @@ MAP_THEMES = {
     "Dark": {"tiles": "CartoDB dark_matter", "attr": None},
 }
 
-MILITARY_COLOR = "#ff5f6d"
-
-HIGH_CONFIDENCE_MILITARY_KEYWORDS = [
-    "NROL",
-    "USA ",
-    "KH-",
-    "SBIRS",
-    "AEHF",
-    "MUOS",
-    "MILSTAR",
-    "YAOGAN",
-    "TRUMPET",
-    "LACROSSE",
-    "ONYX",
-    "DSP",
-    "GSSAP",
-]
-
-WATCHLIST_KEYWORDS = [
-    "NAVSTAR",
-    "GPS",
-]
-
-PRIORITY_RANKS = {
-    "High Confidence": 0,
-    "Watchlist": 1,
-}
+STRATEGIC_COLOR = "#ff5f6d"
 
 
 def inject_styles():
@@ -223,18 +197,58 @@ def orbit_regime(altitude_km):
     return "HEO"
 
 
-def classify_military_link(name: str) -> tuple[bool, str]:
+def is_strategic_asset(name: str) -> bool:
     text = safe_str(name).upper()
 
-    for keyword in HIGH_CONFIDENCE_MILITARY_KEYWORDS:
-        if keyword in text:
-            return True, "High Confidence"
+    keywords = [
+        "NROL",
+        "USA ",
+        "KH-",
+        "SBIRS",
+        "AEHF",
+        "MUOS",
+        "MILSTAR",
+        "DSP",
+        "GSSAP",
+        "TRUMPET",
+        "LACROSSE",
+        "ONYX",
 
-    for keyword in WATCHLIST_KEYWORDS:
-        if keyword in text:
-            return True, "Watchlist"
+        "YAOGAN",
+        "TIANHUI",
+        "GAOFEN",
 
-    return False, ""
+        "COSMOS",
+        "GLONASS",
+
+        "NAVSTAR",
+        "GPS",
+        "BEIDOU",
+        "GALILEO",
+        "IRNSS",
+        "NAVIC",
+        "QZSS",
+
+        "DEFENCE",
+        "DEFENSE",
+        "INTEL",
+    ]
+
+    return any(keyword in text for keyword in keywords)
+
+
+def strategic_group(name: str) -> str:
+    text = safe_str(name).upper()
+
+    if any(k in text for k in ["NROL", "USA ", "KH-", "SBIRS", "AEHF", "MUOS", "MILSTAR", "DSP", "GSSAP", "TRUMPET", "LACROSSE", "ONYX"]):
+        return "Military / Intel"
+    if any(k in text for k in ["YAOGAN", "TIANHUI", "GAOFEN"]):
+        return "Chinese Strategic"
+    if any(k in text for k in ["COSMOS", "GLONASS"]):
+        return "Russian Strategic"
+    if any(k in text for k in ["NAVSTAR", "GPS", "BEIDOU", "GALILEO", "IRNSS", "NAVIC", "QZSS"]):
+        return "Navigation"
+    return "Other Strategic"
 
 
 def build_session():
@@ -328,7 +342,7 @@ def search_blob(row):
             safe_str(row.get("norad_id")),
             safe_str(row.get("country")),
             safe_str(row.get("orbit_regime")),
-            safe_str(row.get("military_confidence")),
+            safe_str(row.get("strategic_group")),
             safe_str(row.get("object_type")),
         ]
     ).lower()
@@ -386,9 +400,8 @@ def build_full_dataset(identity, password):
     rows = []
     for record in raw_records:
         name = record.get("OBJECT_NAME") or f"NORAD {record.get('NORAD_CAT_ID', 'Unknown')}"
-        is_military_linked, military_confidence = classify_military_link(name)
 
-        if not is_military_linked:
+        if not is_strategic_asset(name):
             continue
 
         state = propagate_from_record(record, now_utc)
@@ -401,10 +414,10 @@ def build_full_dataset(identity, password):
             {
                 "name": name,
                 "norad_id": str(record.get("NORAD_CAT_ID", "")),
-                "category": "Military-linked",
-                "military_confidence": military_confidence,
+                "category": "Strategic asset",
+                "strategic_group": strategic_group(name),
                 "object_type": record.get("OBJECT_TYPE", ""),
-                "country": record.get("COUNTRY_CODE", ""),
+                "country": record.get("COUNTRY_CODE", "") or "Unknown",
                 "launch_date": record.get("LAUNCH_DATE", ""),
                 "epoch": record.get("EPOCH", ""),
                 "latitude": lat,
@@ -412,15 +425,14 @@ def build_full_dataset(identity, password):
                 "altitude_km": alt,
                 "speed_kms": speed,
                 "orbit_regime": orbit_regime(alt),
-                "marker_color": MILITARY_COLOR,
+                "marker_color": STRATEGIC_COLOR,
             }
         )
 
     if not rows:
-        raise RuntimeError("No propagatable military-linked satellite positions were produced from the current Space-Track response.")
+        raise RuntimeError("No propagatable strategic satellite positions were produced from the current Space-Track response.")
 
     df = pd.DataFrame(rows)
-    df["priority_rank"] = df["military_confidence"].map(PRIORITY_RANKS).fillna(99)
     df["search_blob"] = df.apply(search_blob, axis=1)
 
     loaded_at_iso = now_utc.isoformat()
@@ -432,7 +444,7 @@ def sample_visual_dataset(full_df, limit_count):
     if full_df.empty:
         return full_df.iloc[0:0].copy()
 
-    return full_df.sort_values(["priority_rank", "name"]).head(limit_count).reset_index(drop=True)
+    return full_df.sort_values(["country", "name"]).head(limit_count).reset_index(drop=True)
 
 
 def load_dataset(identity, password, limit_count):
@@ -449,7 +461,7 @@ def load_dataset(identity, password, limit_count):
         return pd.DataFrame(), pd.DataFrame(), None, "unavailable", str(error)
 
 
-def apply_filters(df, search_query, regimes, confidence_filters):
+def apply_filters(df, search_query, regimes):
     filtered = df.copy()
 
     if search_query and "search_blob" in filtered.columns:
@@ -457,9 +469,6 @@ def apply_filters(df, search_query, regimes, confidence_filters):
 
     if regimes and "orbit_regime" in filtered.columns:
         filtered = filtered[filtered["orbit_regime"].isin(regimes)]
-
-    if confidence_filters and "military_confidence" in filtered.columns:
-        filtered = filtered[filtered["military_confidence"].isin(confidence_filters)]
 
     return filtered.reset_index(drop=True)
 
@@ -472,15 +481,15 @@ def popup_html(row):
                     <div style="font-size:15px; font-weight:700; color:#09111f;">{html.escape(safe_str(row.get("name") or "Unknown object"))}</div>
                     <div style="font-size:12px; color:#5a6d85;">NORAD {html.escape(safe_str(row.get("norad_id") or "Unknown"))}</div>
                 </div>
-                <div style="background:{row.get("marker_color", MILITARY_COLOR)}; color:#fff; font-size:11px; font-weight:700; border-radius:999px; padding:5px 8px;">
-                    {html.escape(safe_str(row.get("military_confidence") or "Military-linked"))}
+                <div style="background:{row.get("marker_color", STRATEGIC_COLOR)}; color:#fff; font-size:11px; font-weight:700; border-radius:999px; padding:5px 8px;">
+                    {html.escape(safe_str(row.get("strategic_group") or "Strategic"))}
                 </div>
             </div>
             <table style="width:100%; border-collapse:collapse; font-size:12px;">
                 <tr><td style="padding:4px 0; color:#5a6d85;">Type</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("object_type") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Country</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("country") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Orbit</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("orbit_regime") or "Unknown"))}</td></tr>
-                <tr><td style="padding:4px 0; color:#5a6d85;">Confidence</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("military_confidence") or "Unknown"))}</td></tr>
+                <tr><td style="padding:4px 0; color:#5a6d85;">Group</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("strategic_group") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Altitude</td><td style="padding:4px 0;">{float(row.get("altitude_km")):,.0f} km</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Velocity</td><td style="padding:4px 0;">{float(row.get("speed_kms")):.2f} km/s</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Epoch</td><td style="padding:4px 0;">{html.escape(format_time(row.get("epoch")))}</td></tr>
@@ -490,7 +499,7 @@ def popup_html(row):
 
 
 def satellite_icon_html(row, show_label):
-    color = row.get("marker_color", MILITARY_COLOR)
+    color = row.get("marker_color", STRATEGIC_COLOR)
     label_html = ""
 
     if show_label:
@@ -529,13 +538,13 @@ def create_map(df, map_theme, show_labels):
     Fullscreen(position="topright").add_to(satellite_map)
     MousePosition(position="bottomright", separator=" | ", lng_first=False, num_digits=3, prefix="Lat / Lon").add_to(satellite_map)
 
-    marker_layer = folium.FeatureGroup(name="Military-linked objects", show=True)
+    marker_layer = folium.FeatureGroup(name="Strategic assets", show=True)
     effective_labels = show_labels and len(coords) <= 60
 
     for _, row in coords.iterrows():
         folium.Marker(
             location=[row["latitude"], row["longitude"]],
-            tooltip=f"{safe_str(row.get('name'))} | {safe_str(row.get('military_confidence'))}",
+            tooltip=f"{safe_str(row.get('name'))} | {safe_str(row.get('strategic_group'))}",
             popup=folium.Popup(popup_html(row), max_width=360),
             icon=DivIcon(html=satellite_icon_html(row, effective_labels)),
         ).add_to(marker_layer)
@@ -545,7 +554,7 @@ def create_map(df, map_theme, show_labels):
     return satellite_map, effective_labels
 
 
-def military_country_summary_table(df):
+def strategic_country_summary_table(df):
     if df.empty:
         return df
 
@@ -573,14 +582,14 @@ def military_country_summary_table(df):
     ).sort_values(["Objects", "Country"], ascending=[False, True]).reset_index(drop=True)
 
 
-def military_feed_table(df):
+def strategic_feed_table(df):
     if df.empty:
         return df
 
     table = df[
         [
             "name",
-            "military_confidence",
+            "strategic_group",
             "norad_id",
             "object_type",
             "country",
@@ -601,7 +610,7 @@ def military_feed_table(df):
     return table.rename(
         columns={
             "name": "Object",
-            "military_confidence": "Confidence",
+            "strategic_group": "Group",
             "norad_id": "NORAD",
             "object_type": "Type",
             "country": "Country",
@@ -620,10 +629,10 @@ inject_styles()
 st.markdown(
     """
     <div class="hero-card">
-        <div class="hero-kicker">MILITARY-LINKED ORBITAL WATCH</div>
-        <h1 class="hero-title">Military Space Watch</h1>
+        <div class="hero-kicker">STRATEGIC ORBITAL WATCH</div>
+        <h1 class="hero-title">Strategic Space Watch</h1>
         <p class="hero-copy">
-            A military-focused orbital watchboard using Space-Track GP elements, propagated into current positions for military-linked public objects.
+            A strategic orbital watchboard using Space-Track GP elements, propagated into current positions for state-linked, military, intelligence, and navigation-related public space assets.
         </p>
     </div>
     """,
@@ -641,18 +650,13 @@ if not identity or not password:
     st.stop()
 
 with st.sidebar:
-    st.markdown("### Military Watch Filters")
+    st.markdown("### Strategic Watch Filters")
     limit_count = st.slider("Objects to visualise", min_value=10, max_value=300, value=100, step=10)
-    search_query = st.text_input("Search military-linked objects", placeholder="Object, NORAD, country, or type").strip()
+    search_query = st.text_input("Search strategic objects", placeholder="Object, NORAD, country, or type").strip()
     regimes = st.multiselect(
         "Orbit regimes",
         options=["LEO", "MEO", "GEO", "HEO"],
         default=["LEO", "MEO", "GEO", "HEO"],
-    )
-    confidence_filters = st.multiselect(
-        "Confidence filters",
-        options=["High Confidence", "Watchlist"],
-        default=["High Confidence", "Watchlist"],
     )
 
     st.markdown("### Map Layers")
@@ -669,23 +673,21 @@ if manual_refresh:
 
 inject_hourly_refresh(auto_refresh_hourly)
 
-if not confidence_filters:
-    st.warning("Choose at least one confidence filter to build the military watch view.")
-    st.stop()
-
-with st.spinner("Loading military-linked orbital data..."):
+with st.spinner("Loading strategic orbital data..."):
     full_satellites_df, satellites_df, loaded_at_iso, data_source, data_error = load_dataset(
         identity,
         password,
         limit_count,
     )
 
-filtered_full_df = apply_filters(full_satellites_df, search_query, regimes, confidence_filters)
-filtered_df = apply_filters(satellites_df, search_query, regimes, confidence_filters)
+filtered_full_df = apply_filters(full_satellites_df, search_query, regimes)
+filtered_df = apply_filters(satellites_df, search_query, regimes)
 
-high_conf_df = filtered_full_df[filtered_full_df["military_confidence"] == "High Confidence"].copy() if not filtered_full_df.empty else pd.DataFrame()
-watchlist_df = filtered_full_df[filtered_full_df["military_confidence"] == "Watchlist"].copy() if not filtered_full_df.empty else pd.DataFrame()
 country_count = filtered_full_df["country"].nunique() if not filtered_full_df.empty else 0
+group_count = filtered_full_df["strategic_group"].nunique() if not filtered_full_df.empty else 0
+
+military_intel_df = filtered_full_df[filtered_full_df["strategic_group"] == "Military / Intel"].copy() if not filtered_full_df.empty else pd.DataFrame()
+navigation_df = filtered_full_df[filtered_full_df["strategic_group"] == "Navigation"].copy() if not filtered_full_df.empty else pd.DataFrame()
 
 status_label = {
     "live": "Live",
@@ -703,38 +705,38 @@ status_color = {
 metric_columns = st.columns(5)
 with metric_columns[0]:
     render_metric_card(
-        "Matched military-linked objects",
+        "Strategic objects",
         f"{len(filtered_full_df):,}",
-        "Full propagated military-linked set matching your active filters",
+        "Government, military, and strategic space assets",
         "#38bdf8",
     )
 with metric_columns[1]:
     render_metric_card(
         "Objects visualised",
         f"{len(filtered_df):,}",
-        "Performance-friendly military-linked sample shown on the radar map",
+        "Live sample displayed on radar",
         "#7dd3fc",
     )
 with metric_columns[2]:
     render_metric_card(
-        "High-confidence objects",
-        f"{len(high_conf_df):,}",
-        "Objects matched to stronger military-linked naming patterns",
-        "#ff5f6d",
+        "Countries",
+        f"{country_count:,}",
+        "Countries operating strategic assets",
+        "#58a6ff",
     )
 with metric_columns[3]:
     render_metric_card(
-        "Watchlist objects",
-        f"{len(watchlist_df):,}",
-        "Objects matched to looser strategic watchlist patterns",
-        "#58a6ff",
+        "Military / Intel",
+        f"{len(military_intel_df):,}",
+        "Tracked military and intelligence-linked assets",
+        "#ff5f6d",
     )
 with metric_columns[4]:
     render_metric_card("Feed status", status_label, status_detail, status_color)
 
 st.caption(
-    f"This page shows military-linked public objects only. Classification is heuristic and based on public naming patterns, "
-    f"not a formal military flag from the API. The current matched set contains {len(filtered_full_df):,} objects across {country_count:,} countries."
+    f"This page tracks strategic public objects using name-based logic rather than a formal API flag. "
+    f"The current matched set contains {len(filtered_full_df):,} objects across {country_count:,} countries and {group_count:,} strategic groups."
 )
 
 st.markdown("")
@@ -744,9 +746,9 @@ with map_col:
     st.markdown(
         """
         <div class="panel-card">
-            <div class="panel-title">Military-linked Orbital Map</div>
+            <div class="panel-title">Strategic Orbital Map</div>
             <div class="panel-copy">
-                The map plots a performance-friendly military-linked sample of current orbital subpoints computed from Space-Track GP data.
+                The map plots a performance-friendly sample of current strategic orbital subpoints computed from Space-Track GP data.
             </div>
         </div>
         """,
@@ -755,32 +757,32 @@ with map_col:
 
     if filtered_df.empty:
         if full_satellites_df.empty:
-            st.error("No military-linked satellite positions could be computed from the current Space-Track response.")
+            st.error("No strategic satellite positions could be computed from the current Space-Track response.")
             if data_error:
                 st.code(str(data_error))
         else:
-            st.info("No military-linked objects match the current search, orbit, and confidence filters.")
+            st.info("No strategic objects match the current search and orbit filters.")
     else:
         orbital_map, labels_used = create_map(filtered_df, map_theme, show_labels)
         if orbital_map is None:
-            st.info("No orbital positions are available for the current sampled military-linked view.")
+            st.info("No orbital positions are available for the current sampled strategic view.")
         else:
             st_folium(
                 orbital_map,
                 use_container_width=True,
                 height=720,
                 returned_objects=[],
-                key="military_space_radar_map",
+                key="strategic_space_radar_map",
             )
             if show_labels and not labels_used:
-                st.caption("Object labels were reduced automatically because too many military-linked objects are visible.")
+                st.caption("Object labels were reduced automatically because too many strategic objects are visible.")
 
 with side_col:
     st.markdown("#### Orbital brief")
     st.markdown(
         f"""
         <div class="panel-card">
-            <div class="panel-title">Current military watch scope</div>
+            <div class="panel-title">Current strategic watch scope</div>
             <div class="panel-copy">
                 {html.escape(status_label)}<br>
                 Loaded at: {html.escape(status_detail)}<br>
@@ -799,9 +801,9 @@ with side_col:
     st.markdown(
         """
         <div class="panel-card">
-            <div class="panel-title">How military-linking works</div>
+            <div class="panel-title">How strategic linking works</div>
             <div class="panel-copy">
-                This page does not rely on a direct military flag from the API. Instead, it uses public naming patterns such as NROL, USA, SBIRS, AEHF, MUOS, MILSTAR, KH-, YAOGAN, and selected watchlist terms to identify military-linked or strategically relevant objects.
+                This page does not rely on a direct military flag from the API. Instead, it uses public naming patterns such as NROL, USA, SBIRS, AEHF, MUOS, MILSTAR, KH-, YAOGAN, COSMOS, GLONASS, GPS, BeiDou, Galileo, IRNSS, NAVIC, and QZSS to identify strategically relevant or state-linked objects.
             </div>
         </div>
         """,
@@ -820,7 +822,7 @@ st.markdown(
     <div class="panel-card">
         <div class="panel-title">Country Summary</div>
         <div class="panel-copy">
-            Country-level summary for the full matched military-linked set under your active filters.
+            Country-level summary for the full matched strategic set under your active filters.
         </div>
     </div>
     """,
@@ -828,16 +830,16 @@ st.markdown(
 )
 
 if filtered_full_df.empty:
-    st.info("No military-linked country summary is available for the current filters.")
+    st.info("No strategic country summary is available for the current filters.")
 else:
-    st.dataframe(military_country_summary_table(filtered_full_df), use_container_width=True, hide_index=True)
+    st.dataframe(strategic_country_summary_table(filtered_full_df), use_container_width=True, hide_index=True)
 
 st.markdown(
     """
     <div class="panel-card">
-        <div class="panel-title">Military-linked Objects</div>
+        <div class="panel-title">Strategic Objects</div>
         <div class="panel-copy">
-            Detailed table of military-linked objects under the current filters. This replaces the broader priority and general tracked-object tables.
+            Detailed table of strategic public objects under the current filters.
         </div>
     </div>
     """,
@@ -845,13 +847,13 @@ st.markdown(
 )
 
 if filtered_full_df.empty:
-    st.info("No military-linked objects match the current filters.")
+    st.info("No strategic objects match the current filters.")
 else:
-    display_df = filtered_full_df.sort_values(["priority_rank", "name"]).head(250).copy()
-    st.dataframe(military_feed_table(display_df), use_container_width=True, hide_index=True)
+    display_df = filtered_full_df.sort_values(["country", "name"]).head(250).copy()
+    st.dataframe(strategic_feed_table(display_df), use_container_width=True, hide_index=True)
 
 st.markdown("---")
 st.caption(
-    f"The current military-linked matched set contains {len(filtered_full_df):,} propagated objects from {status_label.lower()}, "
+    f"The current strategic matched set contains {len(filtered_full_df):,} propagated objects from {status_label.lower()}, "
     f"while {len(filtered_df):,} sampled objects are being visualised for faster map rendering."
 )
