@@ -64,7 +64,10 @@ def inject_styles():
                 --panel-bg:linear-gradient(180deg, rgba(10,23,37,.9), rgba(14,31,49,.82));
                 --hero-bg:linear-gradient(145deg, rgba(10,21,35,.92), rgba(15,31,49,.86));
                 --metric-bg:linear-gradient(180deg, rgba(12,24,39,.9), rgba(14,32,50,.76));
+                --table-row:rgba(255,255,255,.025);
+                --table-row-alt:rgba(255,255,255,.045);
             }
+
             .stApp {
                 background:
                     radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 28%),
@@ -73,36 +76,56 @@ def inject_styles():
                 color:var(--text-main);
                 font-family:"Aptos","Segoe UI",sans-serif;
             }
+
             [data-testid="stSidebar"] {
                 background:linear-gradient(180deg, rgba(9,19,32,.97), rgba(9,19,32,.92));
                 border-right:1px solid var(--stroke);
             }
+
             [data-testid="stSidebar"] * { color:var(--text-main); }
-            .hero-card,.panel-card,.metric-card,.insight-card {
+
+            .hero-card,.panel-card,.metric-card,.insight-card,.country-card,.mini-geo-card {
                 border:1px solid var(--stroke);
                 border-radius:22px;
                 box-shadow:0 12px 28px rgba(4,9,18,.22);
             }
+
             .hero-card {
                 background:var(--hero-bg);
                 padding:1.4rem 1.6rem;
                 margin-bottom:1rem;
             }
+
             .panel-card {
                 background:var(--panel-bg);
                 padding:1rem 1rem .85rem 1rem;
                 margin-bottom:.75rem;
             }
+
             .metric-card {
                 background:var(--metric-bg);
                 padding:1rem 1rem .95rem 1rem;
                 min-height:120px;
             }
+
             .insight-card {
                 background:var(--panel-bg);
                 padding:1rem 1rem .95rem 1rem;
                 min-height:138px;
             }
+
+            .country-card {
+                background:linear-gradient(180deg, rgba(12,24,39,.95), rgba(15,32,50,.82));
+                padding:1rem 1rem .95rem 1rem;
+                min-height:160px;
+            }
+
+            .mini-geo-card {
+                background:linear-gradient(180deg, rgba(15,32,50,.92), rgba(10,22,36,.84));
+                padding:.95rem 1rem;
+                min-height:120px;
+            }
+
             .hero-kicker {
                 letter-spacing:.16rem;
                 font-size:.72rem;
@@ -111,6 +134,7 @@ def inject_styles():
                 margin-bottom:.4rem;
                 text-transform:uppercase;
             }
+
             .hero-title {
                 font-size:2.45rem;
                 line-height:1.04;
@@ -118,11 +142,13 @@ def inject_styles():
                 margin:0;
                 color:var(--text-main);
             }
-            .hero-copy,.panel-copy,.metric-detail,.insight-copy {
+
+            .hero-copy,.panel-copy,.metric-detail,.insight-copy,.country-copy,.mini-geo-copy {
                 color:var(--text-soft);
                 font-size:.96rem;
                 line-height:1.55;
             }
+
             .metric-label {
                 font-size:.8rem;
                 text-transform:uppercase;
@@ -130,6 +156,7 @@ def inject_styles():
                 color:var(--text-soft);
                 margin-bottom:.45rem;
             }
+
             .metric-value {
                 font-size:2rem;
                 font-weight:740;
@@ -137,33 +164,39 @@ def inject_styles():
                 margin-bottom:.35rem;
                 color:var(--text-main);
             }
+
             .accent-bar {
                 width:54px;
                 height:4px;
                 border-radius:999px;
                 margin-bottom:.8rem;
             }
+
             .panel-title, .insight-title {
                 font-size:1rem;
                 font-weight:700;
                 margin-bottom:.25rem;
                 color:var(--text-main);
             }
+
             .takeaway-list {
                 margin:0;
                 padding-left:1.15rem;
                 color:var(--text-main);
             }
+
             .takeaway-list li {
-                margin:.5rem 0;
-                line-height:1.5;
+                margin:.62rem 0;
+                line-height:1.6;
             }
+
             .chip-row {
                 display:flex;
                 flex-wrap:wrap;
                 gap:.45rem;
                 margin-top:.45rem;
             }
+
             .chip {
                 display:inline-block;
                 padding:.28rem .6rem;
@@ -174,15 +207,114 @@ def inject_styles():
                 background:rgba(56,189,248,.14);
                 border:1px solid rgba(56,189,248,.24);
             }
+
             .subtle-note {
                 color:var(--text-soft);
                 font-size:.86rem;
                 margin-top:.25rem;
             }
+
             .stDataFrame, div[data-testid="stTable"] {
                 border-radius:18px;
                 overflow:hidden;
                 border:1px solid var(--stroke);
+            }
+
+            .country-flag {
+                font-size:1.55rem;
+                line-height:1;
+                margin-bottom:.6rem;
+            }
+
+            .country-name {
+                font-size:1.08rem;
+                font-weight:760;
+                color:var(--text-main);
+                margin-bottom:.25rem;
+            }
+
+            .country-value {
+                font-size:2rem;
+                font-weight:780;
+                line-height:1;
+                margin-bottom:.35rem;
+                color:var(--text-main);
+            }
+
+            .country-meta {
+                font-size:.8rem;
+                color:#b9cbe0;
+                margin-top:.55rem;
+                line-height:1.45;
+            }
+
+            .country-summary-table {
+                width:100%;
+                border-collapse:separate;
+                border-spacing:0;
+                overflow:hidden;
+                border:1px solid var(--stroke);
+                border-radius:18px;
+                background:rgba(9,19,31,.62);
+            }
+
+            .country-summary-table thead th {
+                text-align:left;
+                padding:.95rem .9rem;
+                font-size:.78rem;
+                text-transform:uppercase;
+                letter-spacing:.08rem;
+                color:#a9c0d8;
+                background:rgba(255,255,255,.03);
+                border-bottom:1px solid var(--stroke);
+            }
+
+            .country-summary-table tbody tr:nth-child(odd) {
+                background:var(--table-row);
+            }
+
+            .country-summary-table tbody tr:nth-child(even) {
+                background:var(--table-row-alt);
+            }
+
+            .country-summary-table td {
+                padding:.95rem .9rem;
+                border-bottom:1px solid rgba(130,161,191,.12);
+                vertical-align:middle;
+                color:var(--text-main);
+                font-size:.93rem;
+            }
+
+            .country-cell {
+                display:flex;
+                align-items:center;
+                gap:.65rem;
+            }
+
+            .country-cell-flag {
+                font-size:1.2rem;
+                line-height:1;
+            }
+
+            .country-pill {
+                display:inline-block;
+                padding:.22rem .55rem;
+                border-radius:999px;
+                font-size:.76rem;
+                font-weight:700;
+                color:#eef8ff;
+                background:rgba(88,166,255,.16);
+                border:1px solid rgba(88,166,255,.26);
+                white-space:nowrap;
+            }
+
+            .geo-highlight {
+                font-size:.82rem;
+                font-weight:700;
+                color:#84d7ff;
+                text-transform:uppercase;
+                letter-spacing:.08rem;
+                margin-bottom:.35rem;
             }
         </style>
         """,
@@ -237,6 +369,37 @@ def render_insight_card(title, value, copy):
     )
 
 
+def render_top_country_card(flag, country, value, share, top_group, top_orbit):
+    st.markdown(
+        f"""
+        <div class="country-card">
+            <div class="country-flag">{html.escape(flag)}</div>
+            <div class="country-name">{html.escape(country)}</div>
+            <div class="country-value">{value:,}</div>
+            <div class="country-copy">Tracked strategic assets in the current filtered picture.</div>
+            <div class="country-meta">
+                Share of visible footprint: <strong>{share:.0f}%</strong><br>
+                Dominant layer: <strong>{html.escape(top_group)}</strong><br>
+                Primary orbit: <strong>{html.escape(top_orbit)}</strong>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_geo_mini_card(title, copy):
+    st.markdown(
+        f"""
+        <div class="mini-geo-card">
+            <div class="geo-highlight">{html.escape(title)}</div>
+            <div class="mini-geo-copy">{html.escape(copy)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def safe_str(value):
     return "" if value is None else str(value).strip()
 
@@ -256,6 +419,23 @@ def orbit_regime(altitude_km):
     if altitude_km <= 37000:
         return "GEO"
     return "HEO"
+
+
+def country_code_to_flag(code: str) -> str:
+    code = safe_str(code).upper()
+    if not code or len(code) != 2 or not code.isalpha():
+        fallback = {
+            "US": "🇺🇸",
+            "RU": "🇷🇺",
+            "CN": "🇨🇳",
+            "IN": "🇮🇳",
+            "JP": "🇯🇵",
+            "FR": "🇫🇷",
+            "GB": "🇬🇧",
+            "EU": "🇪🇺",
+        }
+        return fallback.get(code, "🌐")
+    return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
 
 
 def is_strategic_asset(name: str) -> bool:
@@ -475,7 +655,7 @@ def build_full_dataset(identity, password):
                 "category": "Strategic asset",
                 "strategic_group": group,
                 "object_type": record.get("OBJECT_TYPE", ""),
-                "country": record.get("COUNTRY_CODE", "") or "Unknown",
+                "country": (record.get("COUNTRY_CODE", "") or "Unknown").upper(),
                 "launch_date": record.get("LAUNCH_DATE", ""),
                 "epoch": record.get("EPOCH", ""),
                 "latitude": lat,
@@ -634,7 +814,7 @@ def create_map(df, map_theme, show_labels):
 
 def strategic_country_summary_table(df):
     if df.empty:
-        return df
+        return pd.DataFrame()
 
     top_group = (
         df.groupby(["country", "strategic_group"])
@@ -667,50 +847,62 @@ def strategic_country_summary_table(df):
     summary = summary.merge(top_group[["country", "Top Group"]], left_on="Country", right_on="country", how="left").drop(columns=["country"])
     summary = summary.merge(top_orbit[["country", "Main Orbit"]], left_on="Country", right_on="country", how="left").drop(columns=["country"])
 
-    return summary[["Country", "Objects", "Top Group", "Main Orbit", "Example_Object"]].rename(
-        columns={"Example_Object": "Example Object"}
-    ).sort_values(["Objects", "Country"], ascending=[False, True]).reset_index(drop=True)
+    summary["Flag"] = summary["Country"].apply(country_code_to_flag)
+
+    summary = summary[
+        ["Flag", "Country", "Objects", "Top Group", "Main Orbit", "Example_Object"]
+    ].rename(columns={"Example_Object": "Example Object"})
+
+    return summary.sort_values(["Objects", "Country"], ascending=[False, True]).reset_index(drop=True)
 
 
-def strategic_feed_table(df):
+def render_country_summary_table(df):
     if df.empty:
-        return df
+        st.info("No strategic country summary is available for the current filters.")
+        return
 
-    table = df[
-        [
-            "name",
-            "strategic_group",
-            "norad_id",
-            "object_type",
-            "country",
-            "orbit_regime",
-            "altitude_km",
-            "speed_kms",
-            "launch_date",
-        ]
-    ].copy()
+    rows = []
+    for _, row in df.iterrows():
+        rows.append(
+            f"""
+            <tr>
+                <td>
+                    <div class="country-cell">
+                        <span class="country-cell-flag">{html.escape(safe_str(row['Flag']))}</span>
+                        <span>{html.escape(safe_str(row['Country']))}</span>
+                    </div>
+                </td>
+                <td><strong>{int(row['Objects']):,}</strong></td>
+                <td><span class="country-pill">{html.escape(safe_str(row['Top Group']))}</span></td>
+                <td><span class="country-pill">{html.escape(safe_str(row['Main Orbit']))}</span></td>
+                <td>{html.escape(safe_str(row['Example Object']))}</td>
+            </tr>
+            """
+        )
 
-    table["altitude_km"] = table["altitude_km"].round(0)
-    table["speed_kms"] = table["speed_kms"].round(2)
+    table_html = f"""
+    <table class="country-summary-table">
+        <thead>
+            <tr>
+                <th>Country</th>
+                <th>Assets</th>
+                <th>Dominant Layer</th>
+                <th>Main Orbit</th>
+                <th>Example Object</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(rows)}
+        </tbody>
+    </table>
+    """
 
-    return table.rename(
-        columns={
-            "name": "Object",
-            "strategic_group": "Group",
-            "norad_id": "NORAD",
-            "object_type": "Type",
-            "country": "Country",
-            "orbit_regime": "Orbit",
-            "altitude_km": "Altitude (km)",
-            "speed_kms": "Velocity (km/s)",
-            "launch_date": "Launch Date",
-        }
-    )
+    st.markdown(table_html, unsafe_allow_html=True)
 
 
 def build_takeaways(df: pd.DataFrame) -> list[str]:
     if df.empty:
-        return ["No strategic objects match the current filters, so no geopolitical takeaways can be generated yet."]
+        return ["No strategic objects match the current filters, so no geopolitical assessment can be generated yet."]
 
     takeaways = []
 
@@ -718,42 +910,52 @@ def build_takeaways(df: pd.DataFrame) -> list[str]:
     group_counts = df.groupby("strategic_group").size().sort_values(ascending=False)
     orbit_counts = df.groupby("orbit_regime").size().sort_values(ascending=False)
 
-    top_country = country_counts.index[0]
-    top_country_count = int(country_counts.iloc[0])
     total_count = int(country_counts.sum())
+    top_country = str(country_counts.index[0])
+    top_country_count = int(country_counts.iloc[0])
     top_country_share = (top_country_count / total_count * 100.0) if total_count else 0.0
 
-    top_group = group_counts.index[0]
+    top_group = str(group_counts.index[0])
     top_group_count = int(group_counts.iloc[0])
     top_group_share = (top_group_count / total_count * 100.0) if total_count else 0.0
 
-    top_orbit = orbit_counts.index[0]
+    top_orbit = str(orbit_counts.index[0])
     top_orbit_count = int(orbit_counts.iloc[0])
     top_orbit_share = (top_orbit_count / total_count * 100.0) if total_count else 0.0
 
-    top_three_share = 0.0
-    if len(country_counts) > 0 and total_count:
-        top_three_share = float(country_counts.head(3).sum() / total_count * 100.0)
+    top_three_share = float(country_counts.head(3).sum() / total_count * 100.0) if total_count else 0.0
 
     takeaways.append(
-        f"{top_country} currently has the largest strategic orbital footprint in this view, with {top_country_count:,} tracked assets "
-        f"representing about {top_country_share:.0f}% of the filtered set."
-    )
-    takeaways.append(
-        f"{top_group} is the dominant strategic layer right now, accounting for roughly {top_group_share:.0f}% of tracked assets."
-    )
-    takeaways.append(
-        f"{top_orbit} is the main orbital regime in the filtered picture, which suggests the current view is weighted toward that mission profile."
-    )
-    takeaways.append(
-        f"The strategic picture is concentrated: the top 3 countries account for about {top_three_share:.0f}% of the assets in this filtered set."
+        f"Great-power competition remains concentrated in orbit: {top_country} holds the largest visible strategic footprint in this filtered picture with {top_country_count:,} tracked assets, or roughly {top_country_share:.0f}% of the monitored set."
     )
 
-    if "Military / Intel" in group_counts.index:
-        mil_count = int(group_counts["Military / Intel"])
-        mil_share = (mil_count / total_count * 100.0) if total_count else 0.0
+    takeaways.append(
+        f"The dominant operational layer is {top_group}, accounting for about {top_group_share:.0f}% of tracked systems, which indicates that the current orbital picture is being shaped most heavily by that mission set rather than by purely civilian or commercial activity."
+    )
+
+    takeaways.append(
+        f"{top_orbit} is the main orbital regime in view at roughly {top_orbit_share:.0f}% of tracked assets, giving the strongest clue about whether the present posture is weighted toward persistence, regional coverage, precision timing, or broad-area strategic surveillance."
+    )
+
+    takeaways.append(
+        f"Strategic concentration is high: the top three countries account for around {top_three_share:.0f}% of all filtered assets, reinforcing how much orbital power projection is still clustered among a small number of state actors."
+    )
+
+    if "Navigation" in group_counts.index:
+        nav_count = int(group_counts["Navigation"])
+        nav_share = (nav_count / total_count * 100.0) if total_count else 0.0
         takeaways.append(
-            f"Military and intelligence-linked systems still make up a meaningful share of the picture at about {mil_share:.0f}% of tracked assets."
+            f"Navigation resilience remains a core strategic layer, with navigation-linked constellations making up about {nav_share:.0f}% of the visible set — a reminder that timing, positioning, and guidance infrastructure underpins both civilian dependence and military effectiveness."
+        )
+
+    if any(group in group_counts.index for group in ["Military / Intel", "Chinese Strategic", "Russian Strategic"]):
+        surveillance_related = sum(
+            int(group_counts.get(group, 0))
+            for group in ["Military / Intel", "Chinese Strategic", "Russian Strategic"]
+        )
+        surveillance_share = (surveillance_related / total_count * 100.0) if total_count else 0.0
+        takeaways.append(
+            f"State-linked surveillance and military layers remain prominent, with intelligence-oriented and strategic government systems comprising about {surveillance_share:.0f}% of the current view, underscoring how orbital infrastructure supports ISR, missile warning, secure communications, and geopolitical signaling."
         )
 
     return takeaways[:5]
@@ -780,6 +982,46 @@ def top_orbit_label(df: pd.DataFrame) -> str:
     return str(counts.index[0])
 
 
+def top_country_cards_data(df: pd.DataFrame, limit: int = 4) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame()
+
+    country_counts = (
+        df.groupby("country")
+        .size()
+        .reset_index(name="Assets")
+        .sort_values("Assets", ascending=False)
+        .head(limit)
+        .rename(columns={"country": "Country"})
+    )
+
+    top_group = (
+        df.groupby(["country", "strategic_group"])
+        .size()
+        .reset_index(name="count")
+        .sort_values(["country", "count", "strategic_group"], ascending=[True, False, True])
+        .drop_duplicates(subset=["country"])
+        .rename(columns={"country": "Country", "strategic_group": "Top Group"})
+    )
+
+    top_orbit = (
+        df.groupby(["country", "orbit_regime"])
+        .size()
+        .reset_index(name="count")
+        .sort_values(["country", "count", "orbit_regime"], ascending=[True, False, True])
+        .drop_duplicates(subset=["country"])
+        .rename(columns={"country": "Country", "orbit_regime": "Main Orbit"})
+    )
+
+    merged = country_counts.merge(top_group[["Country", "Top Group"]], on="Country", how="left")
+    merged = merged.merge(top_orbit[["Country", "Main Orbit"]], on="Country", how="left")
+
+    total_assets = max(int(df.shape[0]), 1)
+    merged["Share"] = merged["Assets"] / total_assets * 100.0
+    merged["Flag"] = merged["Country"].apply(country_code_to_flag)
+    return merged
+
+
 inject_styles()
 
 st.markdown(
@@ -788,8 +1030,8 @@ st.markdown(
         <div class="hero-kicker">Strategic Orbital Watch</div>
         <h1 class="hero-title">Strategic Space Watch</h1>
         <p class="hero-copy">
-            Track state-linked orbital infrastructure and quickly understand which countries dominate
-            navigation, military, intelligence, and other strategic public space assets.
+            Track state-linked orbital infrastructure and translate raw public space data into a clearer geopolitical picture
+            of military layers, navigation resilience, and state surveillance architecture.
         </p>
     </div>
     """,
@@ -917,7 +1159,8 @@ st.markdown(
     <div class="panel-card">
         <div class="panel-title">Today's Key Takeaways</div>
         <div class="panel-copy">
-            Plain-English interpretation of the current filtered orbital picture.
+            A geopolitical reading of the current filtered orbital picture, focused on power concentration,
+            resilience layers, and state-linked surveillance architecture.
         </div>
     </div>
     """,
@@ -938,52 +1181,58 @@ with insight_cols[1]:
     render_insight_card(
         "Dominant strategic layer",
         top_group_label(filtered_full_df),
-        "Most common strategic group in the current picture.",
+        "The most visible mission layer shaping the current strategic picture.",
     )
 with insight_cols[2]:
     render_insight_card(
         "Main orbital regime",
         top_orbit_label(filtered_full_df),
-        "Most common orbit across tracked strategic assets in this view.",
+        "The regime most heavily represented across tracked strategic assets.",
     )
 
 st.markdown("")
 
-chart_left, chart_right = st.columns(2, gap="large")
+top_left, top_right = st.columns([2.2, 1.25], gap="large")
 
-with chart_left:
+with top_left:
     st.markdown(
         """
         <div class="panel-card">
             <div class="panel-title">Top Countries</div>
             <div class="panel-copy">
-                Strategic asset counts by country for the current filtered set.
+                The leading national footprints in the current filtered set, shown as quick-read strategic cards.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
     if filtered_full_df.empty:
         st.info("No country comparison is available for the current filters.")
     else:
-        country_chart_df = (
-            filtered_full_df.groupby("country")
-            .size()
-            .reset_index(name="count")
-            .sort_values("count", ascending=False)
-            .head(10)
-            .rename(columns={"country": "Country", "count": "Assets"})
-            .set_index("Country")
-        )
-        st.bar_chart(country_chart_df)
+        top_cards_df = top_country_cards_data(filtered_full_df, limit=4)
+        if top_cards_df.empty:
+            st.info("No top-country cards are available for the current filters.")
+        else:
+            card_cols = st.columns(len(top_cards_df))
+            for i, (_, row) in enumerate(top_cards_df.iterrows()):
+                with card_cols[i]:
+                    render_top_country_card(
+                        flag=row["Flag"],
+                        country=row["Country"],
+                        value=int(row["Assets"]),
+                        share=float(row["Share"]),
+                        top_group=safe_str(row["Top Group"]),
+                        top_orbit=safe_str(row["Main Orbit"]),
+                    )
 
-with chart_right:
+with top_right:
     st.markdown(
         """
         <div class="panel-card">
             <div class="panel-title">Strategic Group Mix</div>
             <div class="panel-copy">
-                Which strategic layers dominate the current filtered orbital picture.
+                Which layers dominate the current orbital picture.
             </div>
         </div>
         """,
@@ -1002,6 +1251,14 @@ with chart_right:
         )
         st.bar_chart(group_chart_df)
 
+        st.markdown("")
+        geo_cards = st.columns(1)
+        with geo_cards[0]:
+            render_geo_mini_card(
+                "Analyst note",
+                "Use the group mix as a quick way to judge whether the visible picture is weighted toward surveillance and secure-state architectures, or toward broader navigation and positioning infrastructure."
+            )
+
 st.markdown("")
 
 map_col, side_col = st.columns([3.15, 1.1], gap="large")
@@ -1012,7 +1269,8 @@ with map_col:
         <div class="panel-card">
             <div class="panel-title">Orbital Distribution Map</div>
             <div class="panel-copy">
-                A live spatial sample of the current strategic orbital picture. This map supports the analysis above rather than replacing it.
+                A live spatial sample of the current strategic orbital picture. This is intended to support the geopolitical readout above,
+                not replace it.
             </div>
         </div>
         """,
@@ -1066,7 +1324,23 @@ with side_col:
         <div class="panel-card">
             <div class="panel-title">How this page classifies assets</div>
             <div class="panel-copy">
-                This page does not rely on a direct military flag from the API. It uses public naming patterns such as NROL, USA, SBIRS, AEHF, MUOS, MILSTAR, KH-, YAOGAN, COSMOS, GLONASS, GPS, BeiDou, Galileo, IRNSS, NAVIC, and QZSS to identify state-linked or strategically relevant orbital assets.
+                This page does not rely on a direct military flag from the API. It uses public naming patterns such as NROL, USA, SBIRS, AEHF,
+                MUOS, MILSTAR, KH-, YAOGAN, COSMOS, GLONASS, GPS, BeiDou, Galileo, IRNSS, NAVIC, and QZSS to identify state-linked or strategically
+                relevant orbital assets.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("#### Strategic framing")
+    st.markdown(
+        """
+        <div class="panel-card">
+            <div class="panel-title">Why this matters</div>
+            <div class="panel-copy">
+                Strategic constellations are not just technical assets. They underpin precision navigation, missile warning, secure communications,
+                reconnaissance, and national signaling. In practice, this layer helps reveal how states sustain power projection and resilience in orbit.
             </div>
         </div>
         """,
@@ -1087,7 +1361,7 @@ st.markdown(
     <div class="panel-card">
         <div class="panel-title">Country Summary</div>
         <div class="panel-copy">
-            Simplified country leaderboard showing footprint, dominant strategic layer, and main orbital regime.
+            A cleaner country leaderboard showing each state's visible footprint, its dominant strategic layer, and its main orbital regime.
         </div>
     </div>
     """,
@@ -1097,27 +1371,7 @@ st.markdown(
 if filtered_full_df.empty:
     st.info("No strategic country summary is available for the current filters.")
 else:
-    st.dataframe(strategic_country_summary_table(filtered_full_df), use_container_width=True, hide_index=True)
-
-st.markdown("")
-
-st.markdown(
-    """
-    <div class="panel-card">
-        <div class="panel-title">Strategic Asset Register</div>
-        <div class="panel-copy">
-            Detailed reference table for validation and deeper inspection. Kept lower on the page so the high-level story stays clear first.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if filtered_full_df.empty:
-    st.info("No strategic assets match the current filters.")
-else:
-    display_df = filtered_full_df.sort_values(["country", "strategic_group", "name"]).head(250).copy()
-    st.dataframe(strategic_feed_table(display_df), use_container_width=True, hide_index=True)
+    render_country_summary_table(strategic_country_summary_table(filtered_full_df))
 
 st.markdown("---")
 st.caption(
