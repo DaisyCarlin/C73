@@ -1,358 +1,281 @@
 import streamlit as st
-import pandas as pd
-import requests
-import plotly.express as px
 
-st.set_page_config(page_title="Orbital Launch Monitor", layout="wide")
-
-st.title("Orbital Launch Monitor")
-st.caption("A live dashboard for upcoming launches, recent failed launches, and publicly labeled sensitive missions.")
+st.set_page_config(page_title="Signal Console", layout="wide")
 
 
-# CONFIG
-
-SENSITIVE_KEYWORDS = [
-    "government/top secret",
-    "top secret",
-    "government",
-    "national security",
-    "military",
-    "reconnaissance",
-    "surveillance",
-    "classified",
-]
-
-WATCHED_PROVIDERS = [
-    "united launch alliance",
-    "northrop grumman",
-    "spacex",
-    "rocket lab",
-    "roscosmos",
-]
-
-
-# HELPERS
-
-def safe_text(value):
-    return "" if value is None else str(value)
-
-def clean_time_col(df: pd.DataFrame, col: str) -> pd.DataFrame:
-    if not df.empty and col in df.columns:
-        df[col] = pd.to_datetime(df[col], utc=True, errors="coerce")
-    return df
-
-
-# DATA LOADING
-
-@st.cache_data(ttl=300)
-def get_upcoming_launches():
-    url = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=15&mode=detailed"
-    response = requests.get(url, timeout=20)
-    response.raise_for_status()
-    raw = response.json()["results"]
-
-    rows = []
-    for item in raw:
-        pad = item.get("pad") or {}
-        location = pad.get("location") or {}
-
-        rows.append(
-            {
-                "name": item.get("name"),
-                "net": item.get("net"),
-                "status": item.get("status", {}).get("name") if item.get("status") else None,
-                "provider": item.get("launch_service_provider", {}).get("name")
-                if item.get("launch_service_provider")
-                else None,
-                "rocket": item.get("rocket", {}).get("configuration", {}).get("name")
-                if item.get("rocket") and item.get("rocket", {}).get("configuration")
-                else None,
-                "mission_type": item.get("mission", {}).get("type") if item.get("mission") else None,
-                "location_name": location.get("name"),
-                "country_code": location.get("country_code"),
-                "lat": pd.to_numeric(pad.get("latitude"), errors="coerce"),
-                "lon": pd.to_numeric(pad.get("longitude"), errors="coerce"),
+def inject_styles():
+    st.markdown(
+        """
+        <style>
+            :root {
+                --bg-0: #07111f;
+                --bg-1: #0d1b2a;
+                --stroke: rgba(130, 161, 191, 0.22);
+                --text-main: #e8f1fb;
+                --text-soft: #91a9c3;
             }
-        )
 
-    df = pd.DataFrame(rows)
-    df = clean_time_col(df, "net")
-    if not df.empty:
-        df = df.sort_values("net")
-    return df
-
-
-@st.cache_data(ttl=300)
-def get_recent_launches():
-    url = "https://ll.thespacedevs.com/2.2.0/launch/previous/?limit=60&mode=detailed"
-    response = requests.get(url, timeout=20)
-    response.raise_for_status()
-    raw = response.json()["results"]
-
-    rows = []
-    for item in raw:
-        pad = item.get("pad") or {}
-        location = pad.get("location") or {}
-
-        rows.append(
-            {
-                "name": item.get("name"),
-                "net": item.get("net"),
-                "status": item.get("status", {}).get("name") if item.get("status") else None,
-                "provider": item.get("launch_service_provider", {}).get("name")
-                if item.get("launch_service_provider")
-                else None,
-                "rocket": item.get("rocket", {}).get("configuration", {}).get("name")
-                if item.get("rocket") and item.get("rocket", {}).get("configuration")
-                else None,
-                "mission_type": item.get("mission", {}).get("type") if item.get("mission") else None,
-                "location_name": location.get("name"),
-                "country_code": location.get("country_code"),
+            .stApp {
+                background:
+                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 28%),
+                    radial-gradient(circle at top right, rgba(88, 166, 255, 0.12), transparent 26%),
+                    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+                color: var(--text-main);
+                font-family: "Aptos", "Segoe UI", sans-serif;
             }
-        )
 
-    df = pd.DataFrame(rows)
-    df = clean_time_col(df, "net")
-    if not df.empty:
-        df = df.sort_values("net", ascending=False)
-    return df
+            [data-testid="stSidebar"] {
+                background: linear-gradient(180deg, rgba(9, 19, 32, 0.97), rgba(9, 19, 32, 0.92));
+                border-right: 1px solid var(--stroke);
+            }
 
+            [data-testid="stSidebar"] * {
+                color: var(--text-main);
+            }
 
-# LOAD DATA
+            .hero-card {
+                border: 1px solid var(--stroke);
+                background: linear-gradient(145deg, rgba(10, 21, 35, 0.92), rgba(15, 31, 49, 0.86));
+                border-radius: 22px;
+                padding: 1.35rem 1.5rem;
+                box-shadow: 0 18px 40px rgba(4, 9, 18, 0.26);
+                margin-bottom: 1rem;
+            }
 
-launch_error = None
-recent_launch_error = None
+            .hero-kicker {
+                letter-spacing: 0.16rem;
+                font-size: 0.72rem;
+                font-weight: 700;
+                color: #84d7ff;
+                margin-bottom: 0.4rem;
+            }
 
-try:
-    launches_df = get_upcoming_launches()
-except Exception as e:
-    launches_df = pd.DataFrame()
-    launch_error = str(e)
+            .hero-title {
+                font-size: 2.2rem;
+                line-height: 1.05;
+                font-weight: 700;
+                margin: 0;
+                color: var(--text-main);
+            }
 
-try:
-    recent_launches_df = get_recent_launches()
-except Exception as e:
-    recent_launches_df = pd.DataFrame()
-    recent_launch_error = str(e)
+            .hero-copy {
+                margin: 0.55rem 0 0 0;
+                max-width: 60rem;
+                color: var(--text-soft);
+                font-size: 0.98rem;
+            }
 
+            .metric-card {
+                border: 1px solid var(--stroke);
+                background: linear-gradient(180deg, rgba(12, 24, 39, 0.9), rgba(14, 32, 50, 0.76));
+                border-radius: 20px;
+                padding: 1rem 1rem 0.95rem 1rem;
+                min-height: 120px;
+                box-shadow: 0 12px 28px rgba(4, 9, 18, 0.24);
+            }
 
-# DERIVED TABLES
+            .metric-label {
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08rem;
+                color: var(--text-soft);
+                margin-bottom: 0.45rem;
+            }
 
-failed_launches_df = pd.DataFrame()
-sensitive_launches_df = pd.DataFrame()
+            .metric-value {
+                font-size: 2rem;
+                font-weight: 700;
+                line-height: 1;
+                margin-bottom: 0.35rem;
+                color: var(--text-main);
+            }
 
-if not recent_launches_df.empty:
-    now_utc = pd.Timestamp.utcnow()
+            .metric-detail {
+                font-size: 0.92rem;
+                color: var(--text-soft);
+            }
 
-    failed_keywords = ["failure", "partial failure", "failed"]
-    failed_mask = (
-        recent_launches_df["status"]
-        .fillna("")
-        .str.lower()
-        .apply(lambda x: any(word in x for word in failed_keywords))
+            .accent-bar {
+                width: 54px;
+                height: 4px;
+                border-radius: 999px;
+                margin-bottom: 0.8rem;
+            }
+
+            .panel-card {
+                border: 1px solid var(--stroke);
+                background: linear-gradient(180deg, rgba(10, 23, 37, 0.9), rgba(14, 31, 49, 0.82));
+                border-radius: 20px;
+                padding: 1rem 1rem 0.85rem 1rem;
+                box-shadow: 0 12px 28px rgba(4, 9, 18, 0.22);
+                min-height: 210px;
+            }
+
+            .panel-title {
+                font-size: 1rem;
+                font-weight: 700;
+                margin-bottom: 0.25rem;
+                color: var(--text-main);
+            }
+
+            .panel-copy {
+                color: var(--text-soft);
+                font-size: 0.92rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .status-chip {
+                display: inline-block;
+                padding: 0.28rem 0.65rem;
+                border-radius: 999px;
+                font-size: 0.76rem;
+                font-weight: 700;
+                color: #f3fbff;
+                margin-bottom: 0.75rem;
+            }
+
+            .list-line {
+                color: var(--text-soft);
+                font-size: 0.92rem;
+                margin-bottom: 0.42rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
-    failed_launches_df = recent_launches_df[failed_mask].copy()
-    failed_launches_df = failed_launches_df[
-        failed_launches_df["net"] >= now_utc - pd.Timedelta(days=30)
-    ].copy()
 
-    mission_series = recent_launches_df["mission_type"].fillna("").str.lower()
-    provider_series = recent_launches_df["provider"].fillna("").str.lower()
-    name_series = recent_launches_df["name"].fillna("").str.lower()
 
-    sensitive_mask = (
-        mission_series.apply(lambda x: any(k in x for k in SENSITIVE_KEYWORDS))
-        | name_series.apply(lambda x: any(k in x for k in SENSITIVE_KEYWORDS))
-        | provider_series.apply(lambda x: any(k in x for k in WATCHED_PROVIDERS))
+def render_metric_card(title, value, detail, accent):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="accent-bar" style="background:{accent};"></div>
+            <div class="metric-label">{title}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-detail">{detail}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    sensitive_launches_df = recent_launches_df[sensitive_mask].copy()
-    sensitive_launches_df = sensitive_launches_df[
-        sensitive_launches_df["net"] >= now_utc - pd.Timedelta(days=90)
-    ].copy()
 
-
-# STATUS CARDS
-
-st.subheader("System Status")
-
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
-    st.metric("Upcoming Launches", len(launches_df))
-
-with c2:
-    st.metric("Recent Failed Launches", len(failed_launches_df))
-
-with c3:
-    st.metric("Sensitive Launches", len(sensitive_launches_df))
-
-with c4:
-    if launch_error:
-        st.error("Launch Feed Offline")
-    else:
-        st.success("Launch Feed Online")
-
-st.divider()
-
-
-# MAP + OVERVIEW PANEL
-
-left, right = st.columns([1.5, 1])
-
-with left:
-    st.subheader("Launch Site Map")
-
-    if launch_error:
-        st.error(f"Launch map unavailable: {launch_error}")
-    elif launches_df.empty:
-        st.info("No launch data available right now.")
-    else:
-        map_df = launches_df.dropna(subset=["lat", "lon"]).copy()
-        if map_df.empty:
-            st.info("No launch coordinates available right now.")
-        else:
-            fig_map = px.scatter_geo(
-                map_df,
-                lat="lat",
-                lon="lon",
-                hover_name="name",
-                hover_data=["provider", "rocket", "mission_type", "location_name", "net"],
-                title="Upcoming Launch Locations",
-            )
-            fig_map.update_traces(marker=dict(size=10))
-            fig_map.update_layout(height=520, margin=dict(l=0, r=0, t=50, b=0))
-            st.plotly_chart(fig_map, use_container_width=True)
-
-with right:
-    st.subheader("Launch Overview")
-
-    if launch_error:
-        st.error("Live launch feed is currently unavailable.")
-    else:
-        st.success("Live launch monitoring is active.")
-
-        if not launches_df.empty:
-            next_launch_name = safe_text(launches_df.iloc[0]["name"])
-            next_launch_time = safe_text(launches_df.iloc[0]["net"])
-
-            st.markdown("**Next scheduled launch**")
-            st.write(next_launch_name)
-            st.write(next_launch_time)
-
-    st.markdown("**Current focus**")
-    st.write("- Upcoming launch activity")
-    st.write("- Recent failed launches")
-    st.write("- Publicly labeled sensitive missions")
-
-st.divider()
-
-
-# UPCOMING LAUNCHES
-
-st.subheader("Upcoming Launches")
-
-if launch_error:
-    st.error(f"Launch feed unavailable: {launch_error}")
-elif launches_df.empty:
-    st.info("No upcoming launches available.")
-else:
-    nice_launches = launches_df[
-        ["name", "net", "status", "provider", "rocket", "mission_type", "location_name"]
-    ].copy()
-    nice_launches = nice_launches.rename(
-        columns={
-            "name": "Launch",
-            "net": "Time (UTC)",
-            "status": "Status",
-            "provider": "Provider",
-            "rocket": "Rocket",
-            "mission_type": "Mission Type",
-            "location_name": "Location",
-        }
+def render_module_card(title, status, status_color, summary, detail_lines):
+    lines_html = "".join(f'<div class="list-line">{line}</div>' for line in detail_lines)
+    st.markdown(
+        f"""
+        <div class="panel-card">
+            <div class="status-chip" style="background:{status_color};">{status}</div>
+            <div class="panel-title">{title}</div>
+            <div class="panel-copy">{summary}</div>
+            {lines_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    st.dataframe(nice_launches, use_container_width=True, hide_index=True)
-
-st.divider()
 
 
-# RECENT FAILED LAUNCHES
+inject_styles()
 
-st.subheader("Recent Failed Launches")
+st.markdown(
+    """
+    <div class="hero-card">
+        <div class="hero-kicker">OPEN-SOURCE SIGNAL PLATFORM</div>
+        <h1 class="hero-title">Signal Console</h1>
+        <p class="hero-copy">
+            A unified monitoring console for orbital launches, flight activity, and maritime movement,
+            designed to bring open-source operational signals into one clean analyst workspace.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-if recent_launch_error:
-    st.error(f"Recent launch history unavailable: {recent_launch_error}")
-elif failed_launches_df.empty:
-    st.success("No failed launches found in the last 30 days.")
-else:
-    failed_display = failed_launches_df[
-        ["name", "net", "status", "provider", "rocket", "mission_type", "location_name"]
-    ].copy()
-    failed_display = failed_display.rename(
-        columns={
-            "name": "Launch",
-            "net": "Time (UTC)",
-            "status": "Status",
-            "provider": "Provider",
-            "rocket": "Rocket",
-            "mission_type": "Mission Type",
-            "location_name": "Location",
-        }
+metric_columns = st.columns(4)
+with metric_columns[0]:
+    render_metric_card("Platform status", "Online", "Core monitoring console is available", "#39d98a")
+with metric_columns[1]:
+    render_metric_card("Launch monitor", "Live", "Professional launch watchboard is available", "#38bdf8")
+with metric_columns[2]:
+    render_metric_card("Flight monitor", "Live", "Flight radar dashboard is available", "#58a6ff")
+with metric_columns[3]:
+    render_metric_card("Marine monitor", "Live", "Regional maritime watchboard is available", "#ff9e3d")
+
+st.markdown("")
+
+module_columns = st.columns(3, gap="large")
+with module_columns[0]:
+    render_module_card(
+        "Orbital Launch Monitor",
+        "Operational",
+        "#38bdf8",
+        "Tracks upcoming launches, recent failures, and sensitive mission profiles with official-context notes.",
+        [
+            "Upcoming launch schedule and site mapping",
+            "Recent failure tracking",
+            "Publicly signaled sensitive mission watch",
+        ],
     )
-    st.dataframe(failed_display, use_container_width=True, hide_index=True)
-
-st.divider()
-
-
-# SENSITIVE LAUNCHES
-
-st.subheader("Publicly Labeled Sensitive Launches")
-st.caption("This section uses public labels and metadata only. It does not identify undisclosed or covert launches.")
-
-if recent_launch_error:
-    st.error(f"Recent launch history unavailable: {recent_launch_error}")
-elif sensitive_launches_df.empty:
-    st.info("No publicly labeled sensitive launches found in the last 90 days.")
-else:
-    sensitive_display = sensitive_launches_df[
-        ["name", "net", "status", "provider", "rocket", "mission_type", "location_name"]
-    ].copy()
-    sensitive_display = sensitive_display.rename(
-        columns={
-            "name": "Launch",
-            "net": "Time (UTC)",
-            "status": "Status",
-            "provider": "Provider",
-            "rocket": "Rocket",
-            "mission_type": "Mission Type",
-            "location_name": "Location",
-        }
+with module_columns[1]:
+    render_module_card(
+        "Flight Activity",
+        "Operational",
+        "#58a6ff",
+        "Monitors live aircraft positions with emergency squawk decoding, military filtering, and a radar-style map.",
+        [
+            "Emergency and government or military traffic focus",
+            "Session trails and map filtering",
+            "Fast search and table-to-map flight focus",
+        ],
     )
-    st.dataframe(sensitive_display, use_container_width=True, hide_index=True)
+with module_columns[2]:
+    render_module_card(
+        "Abnormal Marine Activity",
+        "Operational",
+        "#ff9e3d",
+        "Loads regional AIS snapshots to surface abnormal vessel signals, tanker traffic, and maritime movement patterns.",
+        [
+            "Regional AIS snapshot loading",
+            "Abnormal status and high-speed signal checks",
+            "Tanker and energy shipping view",
+        ],
+    )
 
-st.divider()
+st.markdown("")
 
+overview_col, nav_col = st.columns([2.2, 1], gap="large")
 
-# ANALYST SUMMARY
+with overview_col:
+    st.markdown(
+        """
+        <div class="panel-card" style="min-height: 0;">
+            <div class="panel-title">Platform Purpose</div>
+            <div class="panel-copy">
+                This console brings together aerospace, aviation, and maritime open-source signals so you can track
+                patterns, incidents, disruptions, and strategic activity from one consistent workspace.
+            </div>
+            <div class="list-line">Launch monitoring for schedule, failure, and sensitive mission context</div>
+            <div class="list-line">Flight monitoring for emergency, military, and government-linked air traffic</div>
+            <div class="list-line">Marine monitoring for AIS movement signals, tanker traffic, and regional vessel snapshots</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-st.subheader("Analyst Summary")
+with nav_col:
+    st.markdown(
+        """
+        <div class="panel-card" style="min-height: 0;">
+            <div class="panel-title">Navigation</div>
+            <div class="panel-copy">
+                Use the Streamlit sidebar to open each monitoring page and move between the platform modules.
+            </div>
+            <div class="list-line">Launch monitor</div>
+            <div class="list-line">Flight monitor</div>
+            <div class="list-line">Marine monitor</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-if launch_error:
-    st.markdown("""
-- Launch feed is currently unavailable.
-- The dashboard layout is online, but live data sources need attention.
-""")
-else:
-    next_launch_name = safe_text(launches_df.iloc[0]["name"]) if not launches_df.empty else "No launch available"
-    next_launch_time = safe_text(launches_df.iloc[0]["net"]) if not launches_df.empty else "N/A"
-
-    st.markdown(f"""
-- **{len(launches_df)}** upcoming launch records are currently loaded.
-- **{len(failed_launches_df)}** failed launches were found in the last 30 days.
-- **{len(sensitive_launches_df)}** publicly labeled sensitive launches were found in the last 90 days.
-- The **next scheduled launch** is **{next_launch_name}**.
-- The next launch time is **{next_launch_time}**.
-- The launch layer is operational.
-""")
-
-
+st.markdown("---")
+st.caption("Signal Console is online and ready to route into the launch, flight, and marine monitoring modules.")
