@@ -1,4 +1,5 @@
 import html
+import re
 import time
 
 import folium
@@ -220,6 +221,16 @@ OFFICIAL_SOURCES = {
         "summary": "Official UK government space command organisation page.",
         "country_group": "United Kingdom",
     },
+
+    # ---------------------------
+    # RUSSIA
+    # ---------------------------
+    "ru_roscosmos": {
+        "title": "Roscosmos official portal",
+        "url": "https://www.roscosmos.ru/",
+        "summary": "Official Roscosmos portal covering Russian launch and space activity.",
+        "country_group": "Russia",
+    },
 }
 
 SENSITIVE_KEYWORDS = [
@@ -253,6 +264,8 @@ SENSITIVE_KEYWORDS = [
     "quasi-zenith",
     "irnss",
     "navic",
+    "kosmos",
+    "soyuz",
 ]
 
 WATCHED_PROVIDERS = [
@@ -266,6 +279,7 @@ WATCHED_PROVIDERS = [
     "china aerospace science and technology",
     "casc",
     "expace",
+    "roscosmos",
 ]
 
 COUNTRY_CODE_TO_GROUP = {
@@ -279,13 +293,14 @@ COUNTRY_CODE_TO_GROUP = {
     "ES": "Europe",
     "GB": "United Kingdom",
     "UK": "United Kingdom",
+    "RU": "Russia",
+    "KZ": "Russia",
 }
 
 COUNTRY_NAME_HINTS = {
     "United States": [
         "united states",
         "usa",
-        "us",
         "cape canaveral",
         "vandenberg",
         "kennedy",
@@ -322,7 +337,7 @@ COUNTRY_NAME_HINTS = {
         "lvm3",
         "navic",
         "irnss",
-        "eos-",
+        "eos",
         "risat",
         "cartosat",
         "gsat",
@@ -355,11 +370,21 @@ COUNTRY_NAME_HINTS = {
     ],
     "United Kingdom": [
         "united kingdom",
-        "uk",
         "britain",
         "british",
         "space command",
         "skynet",
+    ],
+    "Russia": [
+        "russia",
+        "russian",
+        "soyuz",
+        "kosmos",
+        "roscosmos",
+        "baikonur",
+        "plesetsk",
+        "angara",
+        "progress",
     ],
 }
 
@@ -370,10 +395,10 @@ GLOBAL_ROLE_PATTERNS = {
         "yaogan",
         "gaofen",
         "earth observation",
-        "eo",
         "remote sensing",
         "cartosat",
         "risat",
+        "kosmos",
     ],
     "Positioning, navigation, and timing mission": [
         "gps",
@@ -656,25 +681,44 @@ def source_links_html(source_keys):
     return "".join(links)
 
 
+def text_contains_word(text: str, phrase: str) -> bool:
+    phrase = safe_text(phrase).lower()
+    text = safe_text(text).lower()
+    if not phrase or not text:
+        return False
+    return re.search(rf"\b{re.escape(phrase)}\b", text) is not None
+
+
 def infer_country_group(row: pd.Series) -> str:
     country_code = safe_text(row.get("country_code")).upper()
     if country_code in COUNTRY_CODE_TO_GROUP:
         return COUNTRY_CODE_TO_GROUP[country_code]
 
+    name = safe_text(row.get("name"))
+    provider = safe_text(row.get("provider"))
+    rocket = safe_text(row.get("rocket"))
+    mission_type = safe_text(row.get("mission_type"))
+    mission_description = safe_text(row.get("mission_description"))
+    location_name = safe_text(row.get("location_name"))
+    pad_name = safe_text(row.get("pad_name"))
+
     text = " ".join(
-        [
-            safe_text(row.get("name")),
-            safe_text(row.get("provider")),
-            safe_text(row.get("rocket")),
-            safe_text(row.get("mission_type")),
-            safe_text(row.get("mission_description")),
-            safe_text(row.get("location_name")),
-            safe_text(row.get("pad_name")),
-        ]
+        [name, provider, rocket, mission_type, mission_description, location_name, pad_name]
     ).lower()
 
+    # Strong direct string checks first for common space naming conventions
+    if "long march" in text or "yaogan" in text or "gaofen" in text or "beidou" in text:
+        return "China"
+    if "soyuz" in text or "kosmos" in text or "roscosmos" in text or "angara" in text:
+        return "Russia"
+    if "pslv" in text or "gslv" in text or "lvm3" in text or "isro" in text:
+        return "India"
+    if "jaxa" in text or "tanegashima" in text or "qzss" in text or "h3" in text:
+        return "Japan"
+
+    # Word-boundary matching for less obvious cases
     for country_group, hints in COUNTRY_NAME_HINTS.items():
-        if any(hint in text for hint in hints):
+        if any(text_contains_word(text, hint) for hint in hints):
             return country_group
 
     return "Other / Unclear"
@@ -721,6 +765,8 @@ def looks_sensitive(row: pd.Series) -> bool:
             "navic",
             "govsatcom",
             "secure communications",
+            "kosmos",
+            "soyuz",
         )
         return any(token in text for token in watched_pattern)
 
@@ -743,6 +789,8 @@ def attach_country_sources(country_group: str, source_keys: list):
         add_source(source_keys, "eu_secure_comms")
     elif country_group == "United Kingdom":
         add_source(source_keys, "uk_space_command")
+    elif country_group == "Russia":
+        add_source(source_keys, "ru_roscosmos")
 
 
 def assess_sensitive_launch(row: pd.Series) -> dict:
@@ -765,9 +813,6 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
     )
     vehicle_context = ""
 
-    # ---------------------------
-    # COUNTRY-SPECIFIC CONTEXT
-    # ---------------------------
     if country_group == "United States":
         if "nrol" in text or "nro" in text:
             likely_role = "Reconnaissance or intelligence support mission"
@@ -780,7 +825,7 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
         elif any(token in text for token in ["gps", "positioning", "navigation", "timing"]):
             likely_role = "Positioning, navigation, and timing mission"
             why_sensitive = (
-                "Public mission labels suggest a PNT payload. Official U.S. Space Force material says GPS provides military and civil positioning, navigation, and timing support, making operational details more sensitive than routine commercial launches."
+                "Public mission labels suggest a PNT payload. Official U.S. Space Force material says GPS provides military and civil positioning, navigation, and timing support."
             )
             add_source(source_keys, "us_gps")
             add_source(source_keys, "us_milcom_pnt")
@@ -808,89 +853,73 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
             add_source(source_keys, "us_vulcan_nssl")
 
         if "electron" in text or "rocket lab" in text:
-            vehicle_context = (
-                "Rocket Lab's Electron has an official NRO mission pedigree for dedicated small-satellite launches."
-            )
+            vehicle_context = "Rocket Lab's Electron has an official NRO mission pedigree for dedicated small-satellite launches."
             add_source(source_keys, "us_nrol_151")
         elif "falcon 9" in text or "spacex" in text:
-            vehicle_context = (
-                "Falcon 9 has a clear national security launch pedigree in official U.S. mission material."
-            )
+            vehicle_context = "Falcon 9 has a clear national security launch pedigree in official U.S. mission material."
             add_source(source_keys, "us_nrol_87")
         elif "atlas v" in text:
-            vehicle_context = (
-                "Atlas V appears in official NRO national security mission history."
-            )
+            vehicle_context = "Atlas V appears in official NRO national security mission history."
             add_source(source_keys, "us_nrol_101")
         elif "delta iv" in text:
-            vehicle_context = (
-                "Delta IV Heavy appears in official NRO heavy-lift mission history."
-            )
+            vehicle_context = "Delta IV Heavy appears in official NRO heavy-lift mission history."
             add_source(source_keys, "us_nrol_82")
         elif "vulcan" in text or "united launch alliance" in text or "ula" in text:
-            vehicle_context = (
-                "Vulcan is officially certified for National Security Space Launch missions."
-            )
+            vehicle_context = "Vulcan is officially certified for National Security Space Launch missions."
             add_source(source_keys, "us_vulcan_nssl")
 
     elif country_group == "China":
         if any(token in text for token in ["yaogan", "gaofen", "remote sensing", "earth observation", "surveillance", "reconnaissance"]):
             likely_role = "Reconnaissance or remote sensing mission"
             why_sensitive = (
-                "Public mission naming suggests a Chinese remote-sensing or surveillance-related payload. Official CNSA programme language says China's space programme serves scientific development, national rights and interests, and national security, so broad official descriptions can sit alongside strategically sensitive mission functions."
+                "Public mission naming suggests a Chinese remote-sensing or surveillance-related payload. Official CNSA programme language says China's space programme serves scientific development, national rights and interests, and national security."
             )
         elif any(token in text for token in ["beidou", "positioning", "navigation", "timing"]):
             likely_role = "Positioning, navigation, and timing mission"
             why_sensitive = (
-                "Public mission naming suggests a Chinese navigation or timing payload. That mission family has national infrastructure and strategic utility, so detailed mission context is usually broader in public-facing descriptions than civil science missions."
+                "Public mission naming suggests a Chinese navigation or timing payload. That mission family has national infrastructure and strategic utility."
             )
         else:
             why_sensitive = (
-                "Public launch naming or mission text suggests a state-linked Chinese payload rather than a purely commercial mission. Official CNSA programme language explicitly includes national rights, interests, and national security as part of the programme context."
+                "Public launch naming or mission text suggests a state-linked Chinese payload rather than a purely commercial mission. Official CNSA programme language explicitly includes national rights, interests, and national security."
             )
 
         add_source(source_keys, "cn_programme")
         add_source(source_keys, "cn_english_home")
 
         if "long march" in text:
-            vehicle_context = (
-                "The mission appears linked to China's Long March launch family, which is central to state launch activity and official CNSA launch reporting."
-            )
+            vehicle_context = "The mission appears linked to China's Long March launch family, which is central to state launch activity and official CNSA reporting."
 
     elif country_group == "India":
         if any(token in text for token in ["navic", "irnss", "positioning", "navigation", "timing"]):
             likely_role = "Positioning, navigation, and timing mission"
             why_sensitive = (
-                "Public naming suggests an Indian navigation or timing-related mission. PNT systems are strategically significant because they underpin national infrastructure, navigation resilience, and defence-adjacent capability."
+                "Public naming suggests an Indian navigation or timing-related mission. PNT systems are strategically significant because they underpin national infrastructure and navigation resilience."
             )
-        elif any(token in text for token in ["cartosat", "risat", "earth observation", "remote sensing", "eos-"]):
+        elif any(token in text for token in ["cartosat", "risat", "earth observation", "remote sensing", "eos"]):
             likely_role = "Reconnaissance or remote sensing mission"
             why_sensitive = (
-                "Public naming suggests an Indian Earth observation or remote-sensing payload. These missions can have dual-use value for environmental, mapping, border, or strategic monitoring functions."
+                "Public naming suggests an Indian Earth observation or remote-sensing payload. These missions can have dual-use value for mapping, border monitoring, or strategic awareness."
             )
         elif any(token in text for token in ["gsat", "satcom", "communication"]):
             likely_role = "Protected communications mission"
             why_sensitive = (
-                "Public naming suggests a communications payload. Communications spacecraft can sit at the intersection of civil connectivity, state resilience, and secure government usage."
+                "Public naming suggests a communications payload. Communications spacecraft can overlap with state resilience and secure government usage."
             )
         else:
             why_sensitive = (
-                "Public naming suggests a state-led Indian mission rather than a purely commercial launch. Official ISRO mission pages provide broad launch, spacecraft, and launcher context even when the strategic relevance is wider than the short public description."
+                "Public naming suggests a state-led Indian mission rather than a purely commercial launch. Official ISRO mission pages provide broader mission and launcher context."
             )
 
         add_source(source_keys, "in_launch_missions")
         add_source(source_keys, "in_spacecraft_missions")
         add_source(source_keys, "in_launchers")
 
-        if any(token in text for token in ["pslv", "eos-"]):
+        if any(token in text for token in ["pslv", "eos"]):
             add_source(source_keys, "in_pslv_c62")
-            vehicle_context = (
-                "The mission appears associated with ISRO's PSLV family, which is regularly used for state and Earth-observation missions."
-            )
+            vehicle_context = "The mission appears associated with ISRO's PSLV family, which is regularly used for state and Earth-observation missions."
         elif any(token in text for token in ["gslv", "lvm3"]):
-            vehicle_context = (
-                "The mission appears linked to India's heavier national launch vehicle families, which often support major state payloads."
-            )
+            vehicle_context = "The mission appears linked to India's heavier national launch vehicle families, which often support major state payloads."
 
     elif country_group == "Japan":
         if any(token in text for token in ["qzss", "quasi-zenith", "positioning", "navigation", "timing"]):
@@ -901,11 +930,11 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
         elif any(token in text for token in ["satellite", "earth observation", "observation", "remote sensing"]):
             likely_role = "Reconnaissance or remote sensing mission"
             why_sensitive = (
-                "Public naming suggests an observation or remote-sensing mission. Even when publicly described in broad terms, such payloads can have dual-use relevance for monitoring and resilience."
+                "Public naming suggests an observation or remote-sensing mission. Even when described broadly, such payloads can have dual-use relevance."
             )
         else:
             why_sensitive = (
-                "Public naming suggests a Japanese state or agency mission rather than a purely private launch. Official JAXA material gives the programme and vehicle context, even where the mission's strategic implications are broader than the short public label."
+                "Public naming suggests a Japanese state or agency mission rather than a purely private launch. Official JAXA material gives programme and vehicle context."
             )
 
         add_source(source_keys, "jp_missions")
@@ -913,14 +942,10 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
 
         if "h3" in text:
             add_source(source_keys, "jp_h3")
-            vehicle_context = (
-                "The mission appears linked to Japan's H3 launch vehicle, now positioned by JAXA as a mainstay national launcher."
-            )
+            vehicle_context = "The mission appears linked to Japan's H3 launch vehicle, now positioned by JAXA as a mainstay national launcher."
         elif any(token in text for token in ["tanegashima", "uchinoura"]):
             add_source(source_keys, "jp_tanegashima")
-            vehicle_context = (
-                "The mission appears associated with a Japanese national launch site used for state launch activity."
-            )
+            vehicle_context = "The mission appears associated with a Japanese national launch site used for state launch activity."
 
     elif country_group == "Europe":
         if any(token in text for token in ["govsatcom", "secure communications", "spainsat", "satcom", "communication"]):
@@ -935,14 +960,12 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
                 add_source(source_keys, "eu_spainsat_ng")
         else:
             why_sensitive = (
-                "Public naming suggests a government-backed European mission or a payload with public-sector resilience relevance. ESA's secure communications material is especially useful when the mission profile points to government communications or infrastructure resilience."
+                "Public naming suggests a government-backed European mission or a payload with public-sector resilience relevance."
             )
             add_source(source_keys, "eu_secure_comms")
 
         if any(token in text for token in ["ariane", "vega", "arianespace"]):
-            vehicle_context = (
-                "The mission appears linked to European institutional launch infrastructure or launch services."
-            )
+            vehicle_context = "The mission appears linked to European institutional launch infrastructure or launch services."
 
     elif country_group == "United Kingdom":
         if any(token in text for token in ["skynet", "satcom", "communication"]):
@@ -952,13 +975,27 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
         )
         add_source(source_keys, "uk_space_command")
 
+    elif country_group == "Russia":
+        if any(token in text for token in ["kosmos", "reconnaissance", "surveillance"]):
+            likely_role = "Reconnaissance or remote sensing mission"
+            why_sensitive = (
+                "Public naming suggests a Russian state-linked payload. Names like Kosmos are often associated with government-led or strategically relevant missions rather than ordinary commercial launches."
+            )
+        else:
+            why_sensitive = (
+                "Public naming suggests a Russian government or state-linked mission rather than a purely commercial profile."
+            )
+        add_source(source_keys, "ru_roscosmos")
+
+        if any(token in text for token in ["soyuz", "fregat", "angara"]):
+            vehicle_context = "The mission appears associated with a core Russian launch vehicle family used in state launch activity."
+
     else:
         likely_role = infer_likely_role(text)
         why_sensitive = (
             "Public naming suggests a government, surveillance, navigation, or secure-communications role, but the country-specific official context is less certain from the available metadata alone."
         )
 
-    # Backstop in case nothing got attached
     if not source_keys:
         if country_group == "China":
             add_source(source_keys, "cn_programme")
@@ -970,6 +1007,8 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
             add_source(source_keys, "eu_secure_comms")
         elif country_group == "United Kingdom":
             add_source(source_keys, "uk_space_command")
+        elif country_group == "Russia":
+            add_source(source_keys, "ru_roscosmos")
         else:
             add_source(source_keys, "us_space_capabilities")
 
@@ -1335,7 +1374,7 @@ with metric_columns[2]:
     render_metric_card(
         "Sensitive launches",
         f"{len(filtered_sensitive_df):,}",
-        "Publicly signaled government, military, security, navigation, or secure-communications profiles",
+        "Publicly signaled government, military, security, navigation, surveillance, or secure-communications profiles",
         STATUS_COLORS["Sensitive"],
     )
 with metric_columns[3]:
@@ -1401,7 +1440,7 @@ with side_col:
         <div class="panel-card">
             <div class="panel-title">Why a launch may be sensitive</div>
             <div class="panel-copy">
-                The explanations in this section now use a global official-source library rather than defaulting mainly to U.S. Space Force and NRO pages.
+                The explanations in this section now use country-aware logic and avoid false U.S. tagging caused by loose substring matching.
             </div>
         </div>
         """,
