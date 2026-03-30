@@ -294,7 +294,7 @@ st.markdown(
         <p class="hero-copy">
             A monitoring console for orbital launches, satellite activity, and strategic pattern detection.
             Built to turn open-source space signals into a cleaner analyst workspace for tracking launch cadence,
-            mission sensitivity, orbital behaviour, and geopolitical movement over time.
+            mission sensitivity, orbital behaviour, and geopolitical movement.
         </p>
         <div class="hero-divider"></div>
     </div>
@@ -302,57 +302,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-metric_columns = st.columns(4)
-with metric_columns[0]:
-    render_metric_card(
-        "Platform status",
-        "Online",
-        "Core console available and ready to route into live orbital modules.",
-        "#39d98a",
-    )
-with metric_columns[1]:
-    render_metric_card(
-        "Launch activity",
-        "Live",
-        "Track upcoming launches, recent failures, and sensitive mission context.",
-        "#38bdf8",
-    )
-with metric_columns[2]:
-    render_metric_card(
-        "Satellite watch",
-        "Live",
-        "Monitor orbital objects, notable operators, and activity patterns.",
-        "#8b5cf6",
-    )
-with metric_columns[3]:
-    render_metric_card(
-        "Strategic insights",
-        "Active",
-        "Surface shifts in launch tempo, state-linked activity, and orbital posture.",
-        "#fbbf24",
-    )
-
-st.markdown('<div class="section-label">Strategic Snapshot</div>', unsafe_allow_html=True)
-
-insight_cols = st.columns(3, gap="large")
-with insight_cols[0]:
-    render_insight_card(
-        "Launch tempo",
-        "State-linked launch activity remains the primary signal driver this cycle.",
-        "Use this layer to spot pacing changes, concentrated launch windows, and operator clustering.",
-    )
-with insight_cols[1]:
-    render_insight_card(
-        "Orbital posture",
-        "Satellite monitoring should foreground watchlists, mission class, and operator behaviour.",
-        "This is where you surface patterns around reconnaissance, navigation resilience, and strategic coverage.",
-    )
-with insight_cols[2]:
-    render_insight_card(
-        "Analyst focus",
-        "The homepage should answer what is live, what matters, and where to click next.",
-        "Keep the landing layer concise so the deeper monitoring pages do the detailed analytical work.",
-    )
 
 st.markdown("")
 st.markdown('<div class="section-label">Platform Modules</div>', unsafe_allow_html=True)
@@ -399,22 +348,6 @@ st.markdown("")
 
 overview_col, nav_col = st.columns([2.1, 1], gap="large")
 
-with overview_col:
-    st.markdown(
-        """
-        <div class="panel-card-tight">
-            <div class="panel-title">Platform Purpose</div>
-            <div class="panel-copy">
-                Signal Console is now positioned as an orbital intelligence workspace rather than a generic multi-domain monitor.
-                The homepage should orient the user quickly, then push them into the deeper analytical modules where the real work happens.
-            </div>
-            <div class="list-line">Launch monitoring for schedule, failure, launch-site, and sensitive mission context</div>
-            <div class="list-line">Satellite monitoring for orbital watchlists, operator behaviour, and strategic asset visibility</div>
-            <div class="list-line">Strategic insights for launch tempo, geopolitical shifts, and interpretable narrative takeaways</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 with nav_col:
     st.markdown(
@@ -432,7 +365,5 @@ with nav_col:
         unsafe_allow_html=True,
     )
 
-st.markdown("---")
-st.caption(
-    "Signal Console is online and ready to route into the launch, satellite, and strategic insights modules."
+
 )
