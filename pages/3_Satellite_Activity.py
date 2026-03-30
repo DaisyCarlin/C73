@@ -29,6 +29,7 @@ SPACE_TRACK_GP_URL = (
 
 REQUEST_TIMEOUT_SECONDS = 12
 QUERY_CACHE_TTL_SECONDS = 3600
+AUTO_REFRESH_SECONDS = 3600
 DISK_CACHE_FILE = "spacetrack_gp_cache.pkl"
 
 MAP_THEMES = {
@@ -65,105 +66,106 @@ PRIORITY_RANKS = {
 
 def inject_styles():
     st.markdown(
-        """
+        f"""
+        <meta http-equiv="refresh" content="{AUTO_REFRESH_SECONDS}">
         <style>
-            :root {
+            :root {{
                 --bg-0:#07111f;
                 --bg-1:#0d1b2a;
                 --stroke:rgba(130,161,191,.22);
                 --text-main:#e8f1fb;
                 --text-soft:#91a9c3;
-            }
-            .stApp {
+            }}
+            .stApp {{
                 background:
                     radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 28%),
                     radial-gradient(circle at top right, rgba(88,166,255,.12), transparent 26%),
                     linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
                 color:var(--text-main);
                 font-family:"Aptos","Segoe UI",sans-serif;
-            }
-            [data-testid="stSidebar"] {
+            }}
+            [data-testid="stSidebar"] {{
                 background:linear-gradient(180deg, rgba(9,19,32,.97), rgba(9,19,32,.92));
                 border-right:1px solid var(--stroke);
-            }
-            [data-testid="stSidebar"] * { color:var(--text-main); }
-            .hero-card,.panel-card,.metric-card {
+            }}
+            [data-testid="stSidebar"] * {{ color:var(--text-main); }}
+            .hero-card,.panel-card,.metric-card {{
                 border:1px solid var(--stroke);
                 border-radius:22px;
                 box-shadow:0 12px 28px rgba(4,9,18,.22);
-            }
-            .hero-card {
+            }}
+            .hero-card {{
                 background:linear-gradient(145deg, rgba(10,21,35,.92), rgba(15,31,49,.86));
                 padding:1.35rem 1.5rem;
                 margin-bottom:1rem;
-            }
-            .panel-card {
+            }}
+            .panel-card {{
                 background:linear-gradient(180deg, rgba(10,23,37,.9), rgba(14,31,49,.82));
                 padding:1rem 1rem .85rem 1rem;
-            }
-            .metric-card {
+            }}
+            .metric-card {{
                 background:linear-gradient(180deg, rgba(12,24,39,.9), rgba(14,32,50,.76));
                 padding:1rem 1rem .95rem 1rem;
                 min-height:120px;
-            }
-            .hero-kicker {
+            }}
+            .hero-kicker {{
                 letter-spacing:.16rem;
                 font-size:.72rem;
                 font-weight:700;
                 color:#84d7ff;
                 margin-bottom:.4rem;
-            }
-            .hero-title {
+            }}
+            .hero-title {{
                 font-size:2.2rem;
                 line-height:1.05;
                 font-weight:700;
                 margin:0;
                 color:var(--text-main);
-            }
-            .hero-copy,.panel-copy,.metric-detail {
+            }}
+            .hero-copy,.panel-copy,.metric-detail {{
                 color:var(--text-soft);
                 font-size:.94rem;
-            }
-            .metric-label {
+            }}
+            .metric-label {{
                 font-size:.8rem;
                 text-transform:uppercase;
                 letter-spacing:.08rem;
                 color:var(--text-soft);
                 margin-bottom:.45rem;
-            }
-            .metric-value {
+            }}
+            .metric-value {{
                 font-size:2rem;
                 font-weight:700;
                 line-height:1;
                 margin-bottom:.35rem;
                 color:var(--text-main);
-            }
-            .accent-bar {
+            }}
+            .accent-bar {{
                 width:54px;
                 height:4px;
                 border-radius:999px;
                 margin-bottom:.8rem;
-            }
-            .panel-title {
+            }}
+            .panel-title {{
                 font-size:1rem;
                 font-weight:700;
                 margin-bottom:.25rem;
                 color:var(--text-main);
-            }
-            .stTabs [data-baseweb="tab-list"] { gap:.6rem; }
-            .stTabs [data-baseweb="tab"] {
+            }}
+            .stTabs [data-baseweb="tab-list"] {{ gap:.6rem; }}
+            .stTabs [data-baseweb="tab"] {{
                 border-radius:999px;
                 background:rgba(15,31,49,.7);
                 border:1px solid var(--stroke);
                 color:var(--text-main);
                 padding-left:1rem;
                 padding-right:1rem;
-            }
-            .stDataFrame, div[data-testid="stTable"] {
+            }}
+            .stDataFrame, div[data-testid="stTable"] {{
                 border-radius:18px;
                 overflow:hidden;
                 border:1px solid var(--stroke);
-            }
+            }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -650,6 +652,12 @@ with st.sidebar:
     map_theme = st.selectbox("Map theme", options=list(MAP_THEMES.keys()), index=1)
     show_labels = st.toggle("Show satellite labels", value=False)
 
+    st.markdown("### Refresh")
+    st.caption("This page automatically refreshes every hour while the tab is open.")
+    if st.button("Refresh now", use_container_width=True):
+        fetch_spacetrack_gp.clear()
+        st.rerun()
+
 if not selected_categories:
     st.warning("Choose at least one category to build the radar view.")
     st.stop()
@@ -741,7 +749,8 @@ with side_col:
                 {html.escape(status_label)}<br>
                 Loaded at: {html.escape(status_detail)}<br>
                 Categories: {html.escape(", ".join(selected_categories))}<br>
-                Source: Space-Track GP JSON
+                Source: Space-Track GP JSON<br>
+                Auto-refresh: Every 60 minutes
             </div>
         </div>
         """,
