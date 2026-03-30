@@ -310,7 +310,6 @@ module_columns = st.columns(3, gap="large")
 with module_columns[0]:
     render_module_card(
         "Orbital Launch Monitor",
-        "Operational",
         "#38bdf8",
         "Tracks global launch schedules, recent failures, and publicly signaled sensitive missions in one cleaner operational view.",
         [
@@ -322,7 +321,6 @@ with module_columns[0]:
 with module_columns[1]:
     render_module_card(
         "Satellite Activity Monitor",
-        "Operational",
         "#8b5cf6",
         "Follows satellites, operators, and orbital patterns to help identify notable behaviour, strategic assets, and watchlist movement.",
         [
@@ -334,7 +332,6 @@ with module_columns[1]:
 with module_columns[2]:
     render_module_card(
         "Strategic Insights",
-        "Operational",
         "#fbbf24",
         "Converts launch and orbital activity into higher-level signals so the platform feels like an intelligence product, not just a dashboard.",
         [
