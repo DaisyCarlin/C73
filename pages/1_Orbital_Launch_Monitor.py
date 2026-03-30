@@ -1253,8 +1253,7 @@ st.markdown(
         <div class="hero-kicker">LIVE ORBITAL OPERATIONS</div>
         <h1 class="hero-title">Orbital Launch Monitor</h1>
         <p class="hero-copy">
-            Monitor upcoming launches, recent failures, and publicly signaled sensitive missions from live launch feeds,
-            then automatically log real launch events into the Strategic Insights pipeline.
+            Monitor upcoming launches, recent failures, and publicly signaled sensitive missions from live launch feeds.
         </p>
     </div>
     """,
@@ -1360,7 +1359,6 @@ with metric_columns[0]:
     render_metric_card(
         "Upcoming launches",
         f"{len(filtered_upcoming_df):,}",
-        "Filtered view of the live upcoming schedule",
         STATUS_COLORS["Upcoming"],
     )
 with metric_columns[1]:
