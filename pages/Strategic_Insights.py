@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 
 import pandas as pd
 import requests
 import streamlit as st
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 st.set_page_config(page_title="Strategic Insights", layout="wide")
 
@@ -12,12 +15,22 @@ st.set_page_config(page_title="Strategic Insights", layout="wide")
 # CONFIG
 # ----------------------------
 
-LAUNCH_RECENT_LIMIT = 60
+LAUNCH_RECENT_LIMIT = 150
 LAUNCH_REQUEST_TIMEOUT = 45
+SPACE_TRACK_REQUEST_TIMEOUT = 15
 REQUEST_RETRIES = 3
 CACHE_TTL_SECONDS = 180
 
 LAUNCH_API_URL = f"https://ll.thespacedevs.com/2.2.0/launch/previous/?limit={LAUNCH_RECENT_LIMIT}&mode=detailed"
+SPACE_TRACK_LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
+SPACE_TRACK_GP_URL = (
+    "https://www.space-track.org/basicspacedata/query/"
+    "class/gp/"
+    "decay_date/null-val/"
+    "epoch/%3Enow-10/"
+    "orderby/norad_cat_id/"
+    "format/json"
+)
 
 SENSITIVE_KEYWORDS = [
     "government",
@@ -170,6 +183,24 @@ def fetch_json_with_retry(url: str, timeout: int, retries: int = REQUEST_RETRIES
     raise last_error
 
 
+def build_session():
+    session = requests.Session()
+    retry = Retry(
+        total=1,
+        connect=1,
+        read=1,
+        backoff_factor=0.5,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET", "POST"],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=4, pool_maxsize=4)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    session.headers.update({"User-Agent": "StrategicInsights/1.0"})
+    return session
+
+
 def month_windows(now_utc: pd.Timestamp) -> tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]:
     current_month_start = pd.Timestamp(year=now_utc.year, month=now_utc.month, day=1, tz="UTC")
     next_month_start = current_month_start + pd.offsets.MonthBegin(1)
@@ -213,6 +244,38 @@ def looks_sensitive_launch(name: str, subcategory: str, source: str) -> bool:
             "missile",
         )
         return any(token in text for token in watched_pattern)
+
+    return False
+
+
+def classify_satellite(name: str) -> str:
+    text = safe_text(name).upper()
+
+    if any(k in text for k in ["ISS", "TIANGONG", "CSS", "CREW", "SOYUZ", "PROGRESS"]):
+        return "Stations"
+    if any(k in text for k in ["GPS", "GALILEO", "GLONASS", "BEIDOU", "NAVSTAR", "QZSS", "IRNSS", "NAVIC"]):
+        return "Navigation"
+    if any(k in text for k in ["NOAA", "GOES", "METEOR", "HIMAWARI", "FENGYUN", "METOP", "DMSP"]):
+        return "Weather"
+    if any(k in text for k in ["LANDSAT", "SENTINEL", "TERRA", "AQUA", "WORLDVIEW", "PLEIADES", "SPOT", "KOMPSAT", "RESURS", "GAOFEN"]):
+        return "Earth Observation"
+    if any(k in text for k in ["STARLINK", "ONEWEB", "IRIDIUM", "INTELSAT", "SES", "EUTELSAT", "INMARSAT", "VIASAT", "TDRS", "O3B"]):
+        return "Communications"
+    if any(k in text for k in ["NROL", "USA ", "COSMOS", "YAOGAN", "KH-", "SBIRS", "AEHF", "MUOS", "MILSTAR"]):
+        return "Military"
+    if any(k in text for k in ["HUBBLE", "JWST", "XMM", "CHANDRAYAAN", "MARS", "LUNAR", "GAIA", "KEPLER"]):
+        return "Science"
+    return "Other"
+
+
+def satellite_is_sensitive(name: str, category: str, country: str) -> bool:
+    text = " ".join([safe_text(name).upper(), safe_text(category).upper(), safe_text(country).upper()])
+
+    if category == "Military":
+        return True
+
+    if any(k in text for k in ["NROL", "USA ", "YAOGAN", "SBIRS", "AEHF", "MUOS", "MILSTAR", "KH-"]):
+        return True
 
     return False
 
@@ -273,15 +336,81 @@ def get_recent_launch_events() -> pd.DataFrame:
 
 
 # ----------------------------
-# LAUNCH-ONLY LOGIC
+# LIVE SATELLITE EVENTS
 # ----------------------------
 
 
-def get_launch_events() -> tuple[pd.DataFrame, list[str]]:
-    launch_df = get_recent_launch_events()
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def get_live_satellite_events(identity: str, password: str) -> pd.DataFrame:
+    session = build_session()
 
-    if launch_df.empty:
-        raise RuntimeError("No launch events were returned from the live launch feed.")
+    login_response = session.post(
+        SPACE_TRACK_LOGIN_URL,
+        data={"identity": identity, "password": password},
+        timeout=SPACE_TRACK_REQUEST_TIMEOUT,
+    )
+    login_response.raise_for_status()
+
+    response = session.get(SPACE_TRACK_GP_URL, timeout=SPACE_TRACK_REQUEST_TIMEOUT)
+    response.raise_for_status()
+
+    payload = response.json()
+    if not isinstance(payload, list) or not payload:
+        raise RuntimeError("Space-Track returned no GP records.")
+
+    rows = []
+    loaded_at = datetime.now(timezone.utc).isoformat()
+
+    for record in payload:
+        name = safe_text(record.get("OBJECT_NAME")) or f"NORAD {safe_text(record.get('NORAD_CAT_ID'))}"
+        category = classify_satellite(name)
+        country = safe_text(record.get("COUNTRY_CODE")) or "Unknown"
+
+        rows.append(
+            {
+                "event_id": f"satellite_{safe_text(record.get('NORAD_CAT_ID'))}",
+                "timestamp": pd.to_datetime(loaded_at, utc=True, errors="coerce"),
+                "country": country,
+                "event_type": "satellite",
+                "subcategory": category,
+                "source": "space-track",
+                "sensitive": satellite_is_sensitive(name, category, country),
+                "name": name,
+                "detail": safe_text(record.get("OBJECT_TYPE")) or "Unknown object type",
+                "country_confidence": "public_catalogue",
+                "classification_confidence": "heuristic",
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    return df
+
+
+# ----------------------------
+# COMBINED LOGIC
+# ----------------------------
+
+
+def get_combined_events(identity: str, password: str) -> tuple[pd.DataFrame, list[str]]:
+    frames = []
+    loaded_sources = []
+
+    launch_df = get_recent_launch_events()
+    if not launch_df.empty:
+        frames.append(launch_df)
+        loaded_sources.append("Launches")
+
+    satellite_df = get_live_satellite_events(identity, password)
+    if not satellite_df.empty:
+        frames.append(satellite_df)
+        loaded_sources.append("Satellites")
+
+    if not frames:
+        raise RuntimeError("No live launch or satellite events were returned.")
+
+    events_df = pd.concat(frames, ignore_index=True)
 
     required_columns = [
         "event_id",
@@ -295,25 +424,29 @@ def get_launch_events() -> tuple[pd.DataFrame, list[str]]:
         "classification_confidence",
     ]
     for required_col in required_columns:
-        if required_col not in launch_df.columns:
+        if required_col not in events_df.columns:
             if required_col == "sensitive":
-                launch_df[required_col] = False
+                events_df[required_col] = False
             else:
-                launch_df[required_col] = ""
+                events_df[required_col] = ""
 
-    launch_df["timestamp"] = pd.to_datetime(launch_df["timestamp"], utc=True, errors="coerce")
-    launch_df["country"] = launch_df["country"].fillna("").astype(str).str.strip().replace("", "Unknown")
-    launch_df["event_type"] = launch_df["event_type"].fillna("").astype(str).str.strip().replace("", "Unknown")
-    launch_df["subcategory"] = launch_df["subcategory"].fillna("").astype(str).str.strip().replace("", "Unknown")
-    launch_df["source"] = launch_df["source"].fillna("").astype(str).str.strip().replace("", "Unknown")
-    launch_df["sensitive"] = launch_df["sensitive"].fillna(False).astype(bool)
-    launch_df["country_confidence"] = launch_df["country_confidence"].fillna("").astype(str)
-    launch_df["classification_confidence"] = launch_df["classification_confidence"].fillna("").astype(str)
+    events_df["timestamp"] = pd.to_datetime(events_df["timestamp"], utc=True, errors="coerce")
+    events_df["country"] = events_df["country"].fillna("").astype(str).str.strip().replace("", "Unknown")
+    events_df["event_type"] = events_df["event_type"].fillna("").astype(str).str.strip().replace("", "Unknown")
+    events_df["subcategory"] = events_df["subcategory"].fillna("").astype(str).str.strip().replace("", "Unknown")
+    events_df["source"] = events_df["source"].fillna("").astype(str).str.strip().replace("", "Unknown")
+    events_df["sensitive"] = events_df["sensitive"].fillna(False).astype(bool)
+    events_df["country_confidence"] = events_df["country_confidence"].fillna("").astype(str)
+    events_df["classification_confidence"] = events_df["classification_confidence"].fillna("").astype(str)
 
-    return launch_df, ["Launches"]
+    return events_df, loaded_sources
 
 
-def apply_filters(events_df: pd.DataFrame, selected_event_types: list[str], sensitive_only: bool) -> pd.DataFrame:
+def apply_filters(
+    events_df: pd.DataFrame,
+    selected_event_types: list[str],
+    sensitive_only: bool,
+) -> pd.DataFrame:
     filtered_df = events_df.copy()
 
     if selected_event_types:
@@ -409,13 +542,12 @@ def describe_scope(selected_event_types: list[str], all_event_types: list[str]) 
     all_types = sorted([x for x in all_event_types if x])
 
     if not selected or selected == all_types:
-        return "launch activity"
+        return "overall space activity"
 
     if len(selected) == 1:
         mapping = {
             "launch": "launch activity",
             "satellite": "satellite activity",
-            "emergency_flight": "emergency flight activity",
         }
         return mapping.get(selected[0], f"{selected[0].replace('_', ' ')} activity")
 
@@ -423,29 +555,64 @@ def describe_scope(selected_event_types: list[str], all_event_types: list[str]) 
     return f"blended {' + '.join(readable)} activity"
 
 
-def build_qualifier_bullets(current_df: pd.DataFrame) -> list[str]:
-    bullets: list[str] = []
+def describe_driver_mix(country: str, current_df: pd.DataFrame) -> str:
+    country_df = current_df[current_df["country"] == country].copy()
+    if country_df.empty:
+        return "mixed activity"
 
-    if current_df.empty:
-        return bullets
-
-    bullets.append(
-        "Launch-side classifications in this view are drawn from structured mission, provider, and launch metadata, so confidence is higher than it would be in a heuristic activity feed."
+    mix = (
+        country_df.groupby("event_type")
+        .size()
+        .reset_index(name="count")
+        .sort_values(["count", "event_type"], ascending=[False, True])
     )
 
-    sensitive_count = int(current_df["sensitive"].sum()) if "sensitive" in current_df.columns else 0
-    if sensitive_count > 0:
+    top_types = mix["event_type"].head(2).tolist()
+    top_types = [t.replace("_", " ") for t in top_types if t]
+
+    if not top_types:
+        return "mixed activity"
+    if len(top_types) == 1:
+        return f"{top_types[0]} activity"
+    return f"{top_types[0]} and {top_types[1]} activity"
+
+
+def build_qualifier_bullets(current_df: pd.DataFrame, selected_event_types: list[str], all_event_types: list[str]) -> list[str]:
+    bullets: list[str] = []
+    selected = sorted([x for x in selected_event_types if x])
+    full_view = (not selected) or (selected == sorted(all_event_types))
+    launch_in_scope = full_view or ("launch" in selected)
+    satellite_in_scope = full_view or ("satellite" in selected)
+
+    if launch_in_scope:
         bullets.append(
-            f"{sensitive_count} current-month launches in this view carry public indicators consistent with government, military, or national-security relevance."
+            "Launch-side classifications in this view are drawn from structured mission, provider, and launch metadata, so confidence is relatively high."
         )
 
-    provider_count = current_df["source"].nunique() if "source" in current_df.columns else 0
-    if provider_count > 0:
+    if satellite_in_scope:
         bullets.append(
-            f"The current launch picture spans {provider_count} provider{'s' if provider_count != 1 else ''}, which helps separate one-off provider activity from broader country-level movement."
+            "Satellite-side classifications are based on public catalogue naming patterns and category heuristics, so they should be treated as indicative rather than definitive mission attribution."
         )
 
-    return bullets[:3]
+        unknown_country_count = 0
+        if "country" in current_df.columns:
+            unknown_country_count = int(
+                (
+                    (current_df["event_type"] == "satellite")
+                    & (current_df["country"].fillna("").astype(str).str.strip() == "Unknown")
+                ).sum()
+            )
+        if unknown_country_count > 0:
+            bullets.append(
+                f"{unknown_country_count} satellite records in the current view have unknown or incomplete country attribution in the public catalogue."
+            )
+
+    if full_view and launch_in_scope and satellite_in_scope:
+        bullets.append(
+            "This blended view combines event-based launch activity with current orbital infrastructure, so comparison is strongest as a strategic directional picture rather than a like-for-like event count."
+        )
+
+    return bullets[:4]
 
 
 def build_narrative_insights(
@@ -463,9 +630,10 @@ def build_narrative_insights(
     current_positive = summary_df[summary_df["current_count"] > 0].copy()
 
     most_active = current_positive.sort_values(["current_count", "country"], ascending=[False, True]).iloc[0]
+    most_active_driver = describe_driver_mix(most_active["country"], current_df)
     insights.append(
-        f"{most_active['country']} recorded the highest {scope_text} this month with "
-        f"{int(most_active['current_count'])} events, driven mainly by {most_active['top_subcategory']} launches."
+        f"{most_active['country']} recorded the highest {scope_text} in the current view with "
+        f"{int(most_active['current_count'])} tracked items, driven mainly by {most_active_driver}."
     )
 
     biggest_increase_df = summary_df[summary_df["absolute_change"] > 0].sort_values(
@@ -474,10 +642,11 @@ def build_narrative_insights(
     )
     if not biggest_increase_df.empty:
         biggest_increase = biggest_increase_df.iloc[0]
+        biggest_increase_driver = describe_driver_mix(biggest_increase["country"], current_df)
         insights.append(
             f"{biggest_increase['country']} shows the strongest month-on-month increase in {scope_text}, up "
-            f"{int(biggest_increase['absolute_change'])} events "
-            f"({float(biggest_increase['pct_change']):+.1f}%), led by {biggest_increase['top_subcategory']} missions."
+            f"{int(biggest_increase['absolute_change'])} tracked items "
+            f"({float(biggest_increase['pct_change']):+.1f}%), led by {biggest_increase_driver}."
         )
 
     high_sensitive_df = current_positive[current_positive["sensitive_share"] >= 50].sort_values(
@@ -487,8 +656,8 @@ def build_narrative_insights(
     if not high_sensitive_df.empty:
         sensitive_leader = high_sensitive_df.iloc[0]
         insights.append(
-            f"{sensitive_leader['country']} has the highest sensitive-launch concentration in the current view, with "
-            f"{sensitive_leader['sensitive_share']:.0f}% of its logged activity marked sensitive."
+            f"{sensitive_leader['country']} has the highest sensitive-share concentration in the current {scope_text} view, with "
+            f"{sensitive_leader['sensitive_share']:.0f}% of its tracked activity marked sensitive."
         )
 
     high_significance_df = summary_df[summary_df["significance"] == "High"]
@@ -552,16 +721,26 @@ st.markdown(
         <div class="hero-kicker">COUNTRY-LEVEL ANALYST VIEW</div>
         <h1 class="hero-title">Strategic Insights</h1>
         <p class="hero-copy">
-            Analyse live launch activity through a cleaner strategic lens, with month-on-month country comparison,
-            sensitive-mission context, and provider-level movement.
+            Blend live launch activity and satellite activity into one strategic view by default,
+            then switch between rocket-only, satellite-only, or both whenever you want.
         </p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
+identity = st.secrets.get("SPACE_TRACK_IDENTITY")
+password = st.secrets.get("SPACE_TRACK_PASSWORD")
+
+if not identity or not password:
+    st.error("Missing Space-Track credentials in Streamlit secrets.")
+    st.code(
+        'Create ".streamlit/secrets.toml" with:\n\nSPACE_TRACK_IDENTITY = "your_email"\nSPACE_TRACK_PASSWORD = "your_password"'
+    )
+    st.stop()
+
 try:
-    events_df, loaded_sources = get_launch_events()
+    events_df, loaded_sources = get_combined_events(identity, password)
     data_error = None
 except Exception as error:
     events_df = pd.DataFrame()
@@ -582,12 +761,12 @@ with st.sidebar:
         "Event types",
         options=all_event_types,
         default=all_event_types,
-        help="Leave all selected for the full launch view, or narrow the analysis if you add other event types later.",
+        help="Choose rocket only, satellite only, or keep both selected for the blended view.",
     )
     sensitive_only = st.toggle(
         "Sensitive only",
         value=False,
-        help="Only include launches marked as sensitive.",
+        help="Only include activity marked as sensitive.",
     )
 
 if all_event_types and not selected_event_types:
@@ -600,7 +779,7 @@ previous_month_start, current_month_start, next_month_start = month_windows(now_
 
 summary_df, current_month_df, previous_month_df = calculate_country_summary(filtered_events_df, now_utc)
 insights = build_narrative_insights(summary_df, current_month_df, selected_event_types, all_event_types)
-qualifier_bullets = build_qualifier_bullets(current_month_df)
+qualifier_bullets = build_qualifier_bullets(current_month_df, selected_event_types, all_event_types)
 scope_text = describe_scope(selected_event_types, all_event_types)
 
 st.caption(
@@ -626,10 +805,10 @@ if not summary_df.empty:
             ascending=[False, False, True],
         ).iloc[0]
         largest_mover_label = str(largest_mover["country"])
-        largest_mover_delta = f"{int(largest_mover['absolute_change']):+d} events"
+        largest_mover_delta = f"{int(largest_mover['absolute_change']):+d} tracked"
 
 with metrics_col_1:
-    st.metric("Current Month Launches", f"{current_total:,}", delta=f"{current_total - previous_total:+,} vs prev month")
+    st.metric("Current View Total", f"{current_total:,}", delta=f"{current_total - previous_total:+,} vs prev month")
 
 with metrics_col_2:
     st.metric("Active Countries", f"{active_countries:,}", delta=f"{len(summary_df):,} tracked in comparison set")
@@ -645,7 +824,7 @@ st.markdown(
     <div class="panel-card">
         <div class="panel-title">Analyst Insights</div>
         <div class="panel-copy">
-            Narrative takeaways generated directly from the live launch event stream.
+            Narrative takeaways generated directly from the live launch and satellite streams, then adapted to the selected scope.
         </div>
     </div>
     """,
@@ -661,7 +840,7 @@ if qualifier_bullets:
         <div class="panel-card">
             <div class="panel-title">Interpretation Notes</div>
             <div class="panel-copy">
-                These qualifiers explain how to read the current launch picture.
+                These qualifiers explain where the current view is stronger, weaker, or more inference-based.
             </div>
         </div>
         """,
@@ -678,7 +857,7 @@ with left_col:
         <div class="panel-card">
             <div class="panel-title">Country Summary</div>
             <div class="panel-copy">
-                Country-level launch totals, movement, sensitivity, dominant mission type, dominant provider, and significance.
+                Country-level totals, movement, sensitivity, dominant activity type, dominant category, dominant source, and significance.
             </div>
         </div>
         """,
@@ -696,7 +875,7 @@ with right_col:
         <div class="panel-card">
             <div class="panel-title">Top Countries This Month</div>
             <div class="panel-copy">
-                Current-month launch volume by country under the active filter scope.
+                Current-month tracked activity by country under the active filter scope.
             </div>
         </div>
         """,
@@ -704,7 +883,7 @@ with right_col:
     )
 
     if summary_df.empty or int(summary_df["current_count"].sum()) == 0:
-        st.info("No current-month launch volume is available to chart.")
+        st.info("No current-month activity is available to chart.")
     else:
         chart_df = summary_df[summary_df["current_count"] > 0].head(10)[["country", "current_count"]].copy()
         chart_df = chart_df.rename(columns={"country": "Country", "current_count": "Current Month"})
@@ -713,9 +892,9 @@ with right_col:
 st.markdown(
     """
     <div class="panel-card">
-        <div class="panel-title">Sensitive vs Non-Sensitive Launches</div>
+        <div class="panel-title">Sensitive vs Non-Sensitive Activity</div>
         <div class="panel-copy">
-            Compare how much of each country's current-month launch activity is marked sensitive versus routine.
+            Compare how much of each country's current-month activity is marked sensitive versus routine.
         </div>
     </div>
     """,
@@ -733,9 +912,9 @@ else:
 st.markdown(
     """
     <div class="panel-card">
-        <div class="panel-title">Top Providers This Month</div>
+        <div class="panel-title">Top Sources This Month</div>
         <div class="panel-copy">
-            Which launch providers are contributing the most current-month activity.
+            Which providers or feeds are contributing the most current-month activity.
         </div>
     </div>
     """,
@@ -743,7 +922,7 @@ st.markdown(
 )
 
 if current_month_df.empty:
-    st.info("No current-month provider mix is available.")
+    st.info("No current-month source mix is available.")
 else:
     source_chart_df = (
         current_month_df.groupby("source")
@@ -758,9 +937,9 @@ else:
 st.markdown(
     """
     <div class="panel-card">
-        <div class="panel-title">Mission-Type Mix This Month</div>
+        <div class="panel-title">Activity-Type Mix This Month</div>
         <div class="panel-copy">
-            See how the current-month launch picture breaks down across mission types.
+            See how the current-month picture breaks down across launches and satellites.
         </div>
     </div>
     """,
@@ -768,9 +947,33 @@ st.markdown(
 )
 
 if current_month_df.empty:
-    st.info("No current-month mission-type mix is available.")
+    st.info("No current-month activity-type mix is available.")
 else:
     mix_chart_df = (
+        current_month_df.groupby("event_type")
+        .size()
+        .reset_index(name="count")
+        .sort_values("count", ascending=False)
+        .set_index("event_type")
+    )
+    st.bar_chart(mix_chart_df)
+
+st.markdown(
+    """
+    <div class="panel-card">
+        <div class="panel-title">Category / Mission Mix This Month</div>
+        <div class="panel-copy">
+            See how the current-month view breaks down across launch mission types and satellite categories.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if current_month_df.empty:
+    st.info("No current-month category mix is available.")
+else:
+    category_chart_df = (
         current_month_df.groupby("subcategory")
         .size()
         .reset_index(name="count")
@@ -778,14 +981,14 @@ else:
         .head(10)
         .set_index("subcategory")
     )
-    st.bar_chart(mix_chart_df)
+    st.bar_chart(category_chart_df)
 
 st.markdown(
     """
     <div class="panel-card">
         <div class="panel-title">Movers</div>
         <div class="panel-copy">
-            Countries with the largest absolute month-on-month launch movement under the current filters.
+            Countries with the largest absolute month-on-month movement under the current filters.
         </div>
     </div>
     """,
