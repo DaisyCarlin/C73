@@ -344,9 +344,9 @@ def search_blob(row):
     ).lower()
 
 
-def save_cache(df, loaded_at_iso, error_message):
+def save_cache(full_df, loaded_at_iso, error_message):
     payload = {
-        "df": df,
+        "df": full_df,
         "loaded_at_iso": loaded_at_iso,
         "error_message": error_message,
     }
@@ -389,7 +389,7 @@ def fetch_spacetrack_gp(_identity, _password):
     return payload
 
 
-def build_dataset(identity, password, selected_categories, limit_per_category):
+def build_full_dataset(identity, password, selected_categories):
     now_utc = datetime.now(timezone.utc)
     raw_records = fetch_spacetrack_gp(identity, password)
 
@@ -436,30 +436,37 @@ def build_dataset(identity, password, selected_categories, limit_per_category):
     df["priority_rank"] = df["category"].map(PRIORITY_RANKS).fillna(99)
     df["search_blob"] = df.apply(search_blob, axis=1)
 
-    limited_frames = []
-    for category in selected_categories:
-        subset = df[df["category"] == category].sort_values(["name"]).head(limit_per_category)
-        if not subset.empty:
-            limited_frames.append(subset)
-
-    if limited_frames:
-        df = pd.concat(limited_frames, ignore_index=True)
-
     loaded_at_iso = now_utc.isoformat()
     save_cache(df, loaded_at_iso, None)
     return df.reset_index(drop=True), loaded_at_iso
 
 
+def sample_visual_dataset(full_df, selected_categories, limit_per_category):
+    limited_frames = []
+    for category in selected_categories:
+        subset = full_df[full_df["category"] == category].sort_values(["name"]).head(limit_per_category)
+        if not subset.empty:
+            limited_frames.append(subset)
+
+    if limited_frames:
+        return pd.concat(limited_frames, ignore_index=True)
+
+    return full_df.iloc[0:0].copy()
+
+
 def load_dataset(identity, password, selected_categories, limit_per_category):
     try:
-        df, loaded_at_iso = build_dataset(identity, password, selected_categories, limit_per_category)
-        return df, loaded_at_iso, "live", None
+        full_df, loaded_at_iso = build_full_dataset(identity, password, selected_categories)
+        visual_df = sample_visual_dataset(full_df, selected_categories, limit_per_category)
+        return full_df, visual_df, loaded_at_iso, "live", None
     except Exception as error:
         cached = load_cache()
         if cached is not None:
-            cached_df, cached_loaded_at, _ = cached
-            return cached_df, cached_loaded_at, "cached_live", str(error)
-        return pd.DataFrame(), None, "unavailable", str(error)
+            cached_full_df, cached_loaded_at, _ = cached
+            cached_full_df = cached_full_df[cached_full_df["category"].isin(selected_categories)].copy()
+            visual_df = sample_visual_dataset(cached_full_df, selected_categories, limit_per_category)
+            return cached_full_df, visual_df, cached_loaded_at, "cached_live", str(error)
+        return pd.DataFrame(), pd.DataFrame(), None, "unavailable", str(error)
 
 
 def apply_filters(df, search_query, regimes):
@@ -659,7 +666,7 @@ with st.sidebar:
         options=category_options,
         default=["Stations", "Navigation", "Weather", "Military"],
     )
-    limit_per_category = st.slider("Objects per category", min_value=2, max_value=20, value=5)
+    limit_per_category = st.slider("Objects per category (visual sample)", min_value=2, max_value=100, value=5)
     search_query = st.text_input("Search satellites", placeholder="Satellite, NORAD, country, or type").strip()
     regimes = st.multiselect(
         "Orbit regimes",
@@ -686,13 +693,14 @@ if not selected_categories:
     st.stop()
 
 with st.spinner("Loading Space-Track orbital data..."):
-    satellites_df, loaded_at_iso, data_source, data_error = load_dataset(
+    full_satellites_df, satellites_df, loaded_at_iso, data_source, data_error = load_dataset(
         identity,
         password,
         selected_categories,
         limit_per_category,
     )
 
+filtered_full_df = apply_filters(full_satellites_df, search_query, regimes)
 filtered_df = apply_filters(satellites_df, search_query, regimes)
 
 priority_df = (
@@ -718,15 +726,40 @@ status_color = {
 
 metric_columns = st.columns(5)
 with metric_columns[0]:
-    render_metric_card("Objects loaded", f"{len(satellites_df):,}", "Loaded from Space-Track GP records", "#38bdf8")
+    render_metric_card(
+        "Total matched objects",
+        f"{len(filtered_full_df):,}",
+        "Full propagated dataset matching your active filters",
+        "#38bdf8",
+    )
 with metric_columns[1]:
-    render_metric_card("Objects in view", f"{len(filtered_df):,}", "Visible after search and orbit filters", "#7dd3fc")
+    render_metric_card(
+        "Objects visualised",
+        f"{len(filtered_df):,}",
+        "Performance-friendly sample shown on the radar map and tables",
+        "#7dd3fc",
+    )
 with metric_columns[2]:
-    render_metric_card("Military watch", f"{len(military_df):,}", "Heuristic military-tagged objects in view", "#ff5f6d")
+    render_metric_card(
+        "Military watch",
+        f"{len(military_df):,}",
+        "Military-tagged objects visible in the sampled radar view",
+        "#ff5f6d",
+    )
 with metric_columns[3]:
-    render_metric_card("Navigation watch", f"{len(navigation_df):,}", "Navigation constellation objects in view", "#58a6ff")
+    render_metric_card(
+        "Navigation watch",
+        f"{len(navigation_df):,}",
+        "Navigation constellation objects visible in the sampled radar view",
+        "#58a6ff",
+    )
 with metric_columns[4]:
     render_metric_card("Feed status", status_label, status_detail, status_color)
+
+st.caption(
+    f"Visual sample mode is active: the radar renders up to {limit_per_category} objects per selected category for speed, "
+    f"while the full matched set currently contains {len(filtered_full_df):,} objects."
+)
 
 st.markdown("")
 map_col, side_col = st.columns([3.1, 1.15], gap="large")
@@ -737,7 +770,7 @@ with map_col:
         <div class="panel-card">
             <div class="panel-title">Orbital Radar Map</div>
             <div class="panel-copy">
-                The map plots current satellite subpoints computed from Space-Track GP data.
+                The map plots a performance-friendly visual sample of current satellite subpoints computed from Space-Track GP data.
             </div>
         </div>
         """,
@@ -745,7 +778,7 @@ with map_col:
     )
 
     if filtered_df.empty:
-        if satellites_df.empty:
+        if full_satellites_df.empty:
             st.error("No satellite positions could be computed from the current Space-Track response.")
             if data_error:
                 st.code(str(data_error))
@@ -754,7 +787,7 @@ with map_col:
     else:
         orbital_map, labels_used = create_map(filtered_df, map_theme, show_labels)
         if orbital_map is None:
-            st.info("No satellite positions are available for the current view.")
+            st.info("No satellite positions are available for the current sampled view.")
         else:
             st_folium(
                 orbital_map,
@@ -777,7 +810,9 @@ with side_col:
                 Loaded at: {html.escape(status_detail)}<br>
                 Categories: {html.escape(", ".join(selected_categories))}<br>
                 Source: Space-Track GP JSON<br>
-                Refresh: {"Hourly" if auto_refresh_hourly else "Manual only"}
+                Refresh: {"Hourly" if auto_refresh_hourly else "Manual only"}<br>
+                Full matched set: {len(filtered_full_df):,}<br>
+                Visual sample: {len(filtered_df):,}
             </div>
         </div>
         """,
@@ -790,7 +825,7 @@ with side_col:
         <div class="panel-card">
             <div class="panel-title">How to read this radar</div>
             <div class="panel-copy">
-                Positions are propagated from current GP orbital elements. Category labels are heuristic groupings based on satellite names and public metadata.
+                Positions are propagated from current GP orbital elements. Category labels are heuristic groupings based on satellite names and public metadata. This page shows a sampled visual slice for performance, not every matched object at once.
             </div>
         </div>
         """,
@@ -808,7 +843,7 @@ tab_priority, tab_summary, tab_feed = st.tabs(["Priority Watch", "Category Summa
 
 with tab_priority:
     st.markdown("### Priority Orbital Watch")
-    st.caption("This view prioritises crewed platforms, military watch objects, navigation satellites, and other high-interest public assets.")
+    st.caption("This view prioritises crewed platforms, military watch objects, navigation satellites, and other high-interest public assets in the sampled radar view.")
     if priority_df.empty:
         st.info("No satellites are visible under the active filters.")
     else:
@@ -816,15 +851,15 @@ with tab_priority:
 
 with tab_summary:
     st.markdown("### Category Summary")
-    st.caption("A quick breakdown of how the current orbital picture is distributed across the selected categories.")
-    if filtered_df.empty:
+    st.caption("This breakdown is based on the full matched set under your active filters, not just the visual sample.")
+    if filtered_full_df.empty:
         st.info("No category summary is available for the current filters.")
     else:
-        st.dataframe(summary_table(filtered_df), use_container_width=True, hide_index=True)
+        st.dataframe(summary_table(filtered_full_df), use_container_width=True, hide_index=True)
 
 with tab_feed:
     st.markdown("### Tracked Satellite Feed")
-    st.caption("This table follows the current search and orbit filters so you can inspect exactly what the radar map is showing.")
+    st.caption("This table shows the sampled radar slice after search and orbit filters. Increase the visual-sample slider to inspect more.")
     if filtered_df.empty:
         st.info("No satellites match the current filters.")
     else:
@@ -832,7 +867,7 @@ with tab_feed:
 
 st.markdown("---")
 st.caption(
-    f"Loaded {len(satellites_df):,} propagated satellite records from {status_label.lower()}, "
-    f"with {len(filtered_df):,} objects visible after filtering and "
-    f"{len(priority_df):,} entries highlighted in the priority watch."
+    f"The current full matched set contains {len(filtered_full_df):,} propagated satellite records from {status_label.lower()}, "
+    f"while {len(filtered_df):,} sampled objects are being visualised for faster map rendering and "
+    f"{len(priority_df):,} entries are highlighted in the priority watch."
 )
