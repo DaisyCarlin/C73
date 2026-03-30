@@ -37,8 +37,9 @@ MAP_THEMES = {
 
 STATUS_COLORS = {
     "Upcoming": "#38bdf8",
-    "Recent failure": "#ff9e3d",
+    "Recent failure": "#ffb454",
     "Sensitive": "#ff5f6d",
+    "Online": "#39d98a",
 }
 
 OFFICIAL_SOURCES = {
@@ -452,16 +453,23 @@ def inject_styles():
             :root {
                 --bg-0: #07111f;
                 --bg-1: #0d1b2a;
+                --bg-2: #0f2237;
+                --card-0: rgba(10, 21, 35, 0.92);
+                --card-1: rgba(15, 31, 49, 0.86);
                 --stroke: rgba(130, 161, 191, 0.22);
                 --text-main: #e8f1fb;
                 --text-soft: #91a9c3;
+                --blue: #38bdf8;
+                --amber: #ffb454;
+                --red: #ff5f6d;
+                --green: #39d98a;
             }
 
             .stApp {
                 background:
                     radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 28%),
                     radial-gradient(circle at top right, rgba(88, 166, 255, 0.12), transparent 26%),
-                    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+                    linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 60%, #0a1524 100%);
                 color: var(--text-main);
                 font-family: "Aptos", "Segoe UI", sans-serif;
             }
@@ -477,9 +485,9 @@ def inject_styles():
 
             .hero-card {
                 border: 1px solid var(--stroke);
-                background: linear-gradient(145deg, rgba(10, 21, 35, 0.92), rgba(15, 31, 49, 0.86));
-                border-radius: 22px;
-                padding: 1.35rem 1.5rem;
+                background: linear-gradient(145deg, rgba(10, 21, 35, 0.96), rgba(15, 31, 49, 0.92));
+                border-radius: 24px;
+                padding: 1.5rem 1.6rem;
                 box-shadow: 0 18px 40px rgba(4, 9, 18, 0.26);
                 margin-bottom: 1rem;
             }
@@ -493,18 +501,83 @@ def inject_styles():
             }
 
             .hero-title {
-                font-size: 2.2rem;
+                font-size: 2.25rem;
                 line-height: 1.05;
-                font-weight: 700;
+                font-weight: 800;
                 margin: 0;
                 color: var(--text-main);
             }
 
             .hero-copy {
-                margin: 0.55rem 0 0 0;
-                max-width: 60rem;
+                margin: 0.65rem 0 0 0;
+                max-width: 64rem;
                 color: var(--text-soft);
                 font-size: 0.98rem;
+            }
+
+            .signal-banner {
+                border: 1px solid rgba(56, 189, 248, 0.26);
+                background:
+                    linear-gradient(135deg, rgba(15, 36, 58, 0.96), rgba(11, 23, 37, 0.94)),
+                    radial-gradient(circle at left center, rgba(56, 189, 248, 0.15), transparent 40%);
+                border-radius: 22px;
+                padding: 1rem 1.2rem;
+                box-shadow: 0 16px 38px rgba(4, 9, 18, 0.26);
+                margin-bottom: 1rem;
+            }
+
+            .signal-kicker {
+                font-size: 0.74rem;
+                text-transform: uppercase;
+                letter-spacing: 0.12rem;
+                color: #8edfff;
+                font-weight: 700;
+                margin-bottom: 0.35rem;
+            }
+
+            .signal-title {
+                font-size: 1.18rem;
+                font-weight: 800;
+                color: #eef7ff;
+                margin-bottom: 0.25rem;
+            }
+
+            .signal-copy {
+                font-size: 0.95rem;
+                color: var(--text-soft);
+                line-height: 1.5;
+            }
+
+            .insight-card {
+                border: 1px solid var(--stroke);
+                background: linear-gradient(180deg, rgba(12, 24, 39, 0.9), rgba(14, 32, 50, 0.76));
+                border-radius: 20px;
+                padding: 1rem 1rem 0.95rem 1rem;
+                min-height: 130px;
+                box-shadow: 0 12px 28px rgba(4, 9, 18, 0.24);
+            }
+
+            .insight-label {
+                font-size: 0.76rem;
+                text-transform: uppercase;
+                letter-spacing: 0.09rem;
+                color: #7ed6ff;
+                margin-bottom: 0.45rem;
+                font-weight: 700;
+            }
+
+            .insight-title {
+                font-size: 1.02rem;
+                font-weight: 800;
+                line-height: 1.3;
+                color: var(--text-main);
+                margin-bottom: 0.35rem;
+            }
+
+            .insight-copy {
+                font-size: 0.9rem;
+                color: var(--text-soft);
+                line-height: 1.45;
             }
 
             .metric-card {
@@ -512,7 +585,7 @@ def inject_styles():
                 background: linear-gradient(180deg, rgba(12, 24, 39, 0.9), rgba(14, 32, 50, 0.76));
                 border-radius: 20px;
                 padding: 1rem 1rem 0.95rem 1rem;
-                min-height: 120px;
+                min-height: 124px;
                 box-shadow: 0 12px 28px rgba(4, 9, 18, 0.24);
             }
 
@@ -526,7 +599,7 @@ def inject_styles():
 
             .metric-value {
                 font-size: 2rem;
-                font-weight: 700;
+                font-weight: 800;
                 line-height: 1;
                 margin-bottom: 0.35rem;
                 color: var(--text-main);
@@ -535,6 +608,7 @@ def inject_styles():
             .metric-detail {
                 font-size: 0.92rem;
                 color: var(--text-soft);
+                line-height: 1.4;
             }
 
             .accent-bar {
@@ -548,13 +622,14 @@ def inject_styles():
                 border: 1px solid var(--stroke);
                 background: linear-gradient(180deg, rgba(10, 23, 37, 0.9), rgba(14, 31, 49, 0.82));
                 border-radius: 20px;
-                padding: 1rem 1rem 0.8rem 1rem;
+                padding: 1rem 1rem 0.9rem 1rem;
                 box-shadow: 0 12px 28px rgba(4, 9, 18, 0.22);
+                margin-bottom: 0.9rem;
             }
 
             .panel-title {
                 font-size: 1rem;
-                font-weight: 700;
+                font-weight: 800;
                 margin-bottom: 0.2rem;
                 color: var(--text-main);
             }
@@ -562,7 +637,76 @@ def inject_styles():
             .panel-copy {
                 color: var(--text-soft);
                 font-size: 0.92rem;
-                margin-bottom: 0.8rem;
+                margin-bottom: 0.3rem;
+                line-height: 1.5;
+            }
+
+            .event-card {
+                border: 1px solid rgba(255, 95, 109, 0.20);
+                background: linear-gradient(180deg, rgba(15, 28, 44, 0.96), rgba(12, 22, 36, 0.9));
+                border-radius: 22px;
+                padding: 1rem 1rem 0.95rem 1rem;
+                box-shadow: 0 16px 34px rgba(4, 9, 18, 0.28);
+                margin-bottom: 0.9rem;
+            }
+
+            .event-kicker {
+                font-size: 0.74rem;
+                text-transform: uppercase;
+                letter-spacing: 0.1rem;
+                color: #ff9aa4;
+                font-weight: 700;
+                margin-bottom: 0.4rem;
+            }
+
+            .event-title {
+                font-size: 1.05rem;
+                font-weight: 800;
+                color: var(--text-main);
+                margin-bottom: 0.5rem;
+                line-height: 1.35;
+            }
+
+            .event-detail {
+                color: var(--text-soft);
+                font-size: 0.91rem;
+                line-height: 1.5;
+                margin-bottom: 0.22rem;
+            }
+
+            .badge {
+                display: inline-block;
+                padding: 0.28rem 0.62rem;
+                border-radius: 999px;
+                font-size: 0.74rem;
+                font-weight: 800;
+                margin-right: 0.35rem;
+                margin-bottom: 0.35rem;
+                border: 1px solid transparent;
+            }
+
+            .badge-blue {
+                color: #dff7ff;
+                background: rgba(56, 189, 248, 0.15);
+                border-color: rgba(56, 189, 248, 0.24);
+            }
+
+            .badge-red {
+                color: #ffe9ec;
+                background: rgba(255, 95, 109, 0.14);
+                border-color: rgba(255, 95, 109, 0.24);
+            }
+
+            .badge-amber {
+                color: #fff2dc;
+                background: rgba(255, 180, 84, 0.14);
+                border-color: rgba(255, 180, 84, 0.24);
+            }
+
+            .badge-green {
+                color: #e6fff1;
+                background: rgba(57, 217, 138, 0.14);
+                border-color: rgba(57, 217, 138, 0.24);
             }
 
             .stTabs [data-baseweb="tab-list"] {
@@ -596,6 +740,13 @@ def inject_styles():
                 margin-right: 0.35rem;
                 margin-bottom: 0.35rem;
                 text-decoration: none;
+            }
+
+            .legend-row {
+                display: flex;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+                margin-top: 0.4rem;
             }
         </style>
         """,
@@ -706,7 +857,6 @@ def infer_country_group(row: pd.Series) -> str:
         [name, provider, rocket, mission_type, mission_description, location_name, pad_name]
     ).lower()
 
-    # Strong direct string checks first for common space naming conventions
     if "long march" in text or "yaogan" in text or "gaofen" in text or "beidou" in text:
         return "China"
     if "soyuz" in text or "kosmos" in text or "roscosmos" in text or "angara" in text:
@@ -716,7 +866,6 @@ def infer_country_group(row: pd.Series) -> str:
     if "jaxa" in text or "tanegashima" in text or "qzss" in text or "h3" in text:
         return "Japan"
 
-    # Word-boundary matching for less obvious cases
     for country_group, hints in COUNTRY_NAME_HINTS.items():
         if any(text_contains_word(text, hint) for hint in hints):
             return country_group
@@ -859,680 +1008,4 @@ def assess_sensitive_launch(row: pd.Series) -> dict:
             vehicle_context = "Falcon 9 has a clear national security launch pedigree in official U.S. mission material."
             add_source(source_keys, "us_nrol_87")
         elif "atlas v" in text:
-            vehicle_context = "Atlas V appears in official NRO national security mission history."
-            add_source(source_keys, "us_nrol_101")
-        elif "delta iv" in text:
-            vehicle_context = "Delta IV Heavy appears in official NRO heavy-lift mission history."
-            add_source(source_keys, "us_nrol_82")
-        elif "vulcan" in text or "united launch alliance" in text or "ula" in text:
-            vehicle_context = "Vulcan is officially certified for National Security Space Launch missions."
-            add_source(source_keys, "us_vulcan_nssl")
-
-    elif country_group == "China":
-        if any(token in text for token in ["yaogan", "gaofen", "remote sensing", "earth observation", "surveillance", "reconnaissance"]):
-            likely_role = "Reconnaissance or remote sensing mission"
-            why_sensitive = (
-                "Public mission naming suggests a Chinese remote-sensing or surveillance-related payload. Official CNSA programme language says China's space programme serves scientific development, national rights and interests, and national security."
-            )
-        elif any(token in text for token in ["beidou", "positioning", "navigation", "timing"]):
-            likely_role = "Positioning, navigation, and timing mission"
-            why_sensitive = (
-                "Public mission naming suggests a Chinese navigation or timing payload. That mission family has national infrastructure and strategic utility."
-            )
-        else:
-            why_sensitive = (
-                "Public launch naming or mission text suggests a state-linked Chinese payload rather than a purely commercial mission. Official CNSA programme language explicitly includes national rights, interests, and national security."
-            )
-
-        add_source(source_keys, "cn_programme")
-        add_source(source_keys, "cn_english_home")
-
-        if "long march" in text:
-            vehicle_context = "The mission appears linked to China's Long March launch family, which is central to state launch activity and official CNSA reporting."
-
-    elif country_group == "India":
-        if any(token in text for token in ["navic", "irnss", "positioning", "navigation", "timing"]):
-            likely_role = "Positioning, navigation, and timing mission"
-            why_sensitive = (
-                "Public naming suggests an Indian navigation or timing-related mission. PNT systems are strategically significant because they underpin national infrastructure and navigation resilience."
-            )
-        elif any(token in text for token in ["cartosat", "risat", "earth observation", "remote sensing", "eos"]):
-            likely_role = "Reconnaissance or remote sensing mission"
-            why_sensitive = (
-                "Public naming suggests an Indian Earth observation or remote-sensing payload. These missions can have dual-use value for mapping, border monitoring, or strategic awareness."
-            )
-        elif any(token in text for token in ["gsat", "satcom", "communication"]):
-            likely_role = "Protected communications mission"
-            why_sensitive = (
-                "Public naming suggests a communications payload. Communications spacecraft can overlap with state resilience and secure government usage."
-            )
-        else:
-            why_sensitive = (
-                "Public naming suggests a state-led Indian mission rather than a purely commercial launch. Official ISRO mission pages provide broader mission and launcher context."
-            )
-
-        add_source(source_keys, "in_launch_missions")
-        add_source(source_keys, "in_spacecraft_missions")
-        add_source(source_keys, "in_launchers")
-
-        if any(token in text for token in ["pslv", "eos"]):
-            add_source(source_keys, "in_pslv_c62")
-            vehicle_context = "The mission appears associated with ISRO's PSLV family, which is regularly used for state and Earth-observation missions."
-        elif any(token in text for token in ["gslv", "lvm3"]):
-            vehicle_context = "The mission appears linked to India's heavier national launch vehicle families, which often support major state payloads."
-
-    elif country_group == "Japan":
-        if any(token in text for token in ["qzss", "quasi-zenith", "positioning", "navigation", "timing"]):
-            likely_role = "Positioning, navigation, and timing mission"
-            why_sensitive = (
-                "Public naming suggests a Japanese regional navigation or timing payload. These systems are strategically relevant because they support navigation resilience and national infrastructure."
-            )
-        elif any(token in text for token in ["satellite", "earth observation", "observation", "remote sensing"]):
-            likely_role = "Reconnaissance or remote sensing mission"
-            why_sensitive = (
-                "Public naming suggests an observation or remote-sensing mission. Even when described broadly, such payloads can have dual-use relevance."
-            )
-        else:
-            why_sensitive = (
-                "Public naming suggests a Japanese state or agency mission rather than a purely private launch. Official JAXA material gives programme and vehicle context."
-            )
-
-        add_source(source_keys, "jp_missions")
-        add_source(source_keys, "jp_satellite_topics")
-
-        if "h3" in text:
-            add_source(source_keys, "jp_h3")
-            vehicle_context = "The mission appears linked to Japan's H3 launch vehicle, now positioned by JAXA as a mainstay national launcher."
-        elif any(token in text for token in ["tanegashima", "uchinoura"]):
-            add_source(source_keys, "jp_tanegashima")
-            vehicle_context = "The mission appears associated with a Japanese national launch site used for state launch activity."
-
-    elif country_group == "Europe":
-        if any(token in text for token in ["govsatcom", "secure communications", "spainsat", "satcom", "communication"]):
-            likely_role = "Protected communications mission"
-            why_sensitive = (
-                "Public naming suggests a European secure communications or government satcom function. Official ESA material explicitly describes secure communications support for governments and public users in Europe."
-            )
-            add_source(source_keys, "eu_secure_comms")
-            add_source(source_keys, "eu_govsatcom")
-            add_source(source_keys, "eu_iris2_support")
-            if "spainsat" in text:
-                add_source(source_keys, "eu_spainsat_ng")
-        else:
-            why_sensitive = (
-                "Public naming suggests a government-backed European mission or a payload with public-sector resilience relevance."
-            )
-            add_source(source_keys, "eu_secure_comms")
-
-        if any(token in text for token in ["ariane", "vega", "arianespace"]):
-            vehicle_context = "The mission appears linked to European institutional launch infrastructure or launch services."
-
-    elif country_group == "United Kingdom":
-        if any(token in text for token in ["skynet", "satcom", "communication"]):
-            likely_role = "Protected communications mission"
-        why_sensitive = (
-            "Public naming suggests a UK government or defence-linked mission. UK official space command material is a better fit here than defaulting to U.S. mission references."
-        )
-        add_source(source_keys, "uk_space_command")
-
-    elif country_group == "Russia":
-        if any(token in text for token in ["kosmos", "reconnaissance", "surveillance"]):
-            likely_role = "Reconnaissance or remote sensing mission"
-            why_sensitive = (
-                "Public naming suggests a Russian state-linked payload. Names like Kosmos are often associated with government-led or strategically relevant missions rather than ordinary commercial launches."
-            )
-        else:
-            why_sensitive = (
-                "Public naming suggests a Russian government or state-linked mission rather than a purely commercial profile."
-            )
-        add_source(source_keys, "ru_roscosmos")
-
-        if any(token in text for token in ["soyuz", "fregat", "angara"]):
-            vehicle_context = "The mission appears associated with a core Russian launch vehicle family used in state launch activity."
-
-    else:
-        likely_role = infer_likely_role(text)
-        why_sensitive = (
-            "Public naming suggests a government, surveillance, navigation, or secure-communications role, but the country-specific official context is less certain from the available metadata alone."
-        )
-
-    if not source_keys:
-        if country_group == "China":
-            add_source(source_keys, "cn_programme")
-        elif country_group == "India":
-            add_source(source_keys, "in_launch_missions")
-        elif country_group == "Japan":
-            add_source(source_keys, "jp_missions")
-        elif country_group == "Europe":
-            add_source(source_keys, "eu_secure_comms")
-        elif country_group == "United Kingdom":
-            add_source(source_keys, "uk_space_command")
-        elif country_group == "Russia":
-            add_source(source_keys, "ru_roscosmos")
-        else:
-            add_source(source_keys, "us_space_capabilities")
-
-    official_basis = " | ".join(source["title"] for source in source_objects(source_keys)[:3])
-
-    return {
-        "country_group": country_group,
-        "likely_role": likely_role,
-        "why_sensitive": why_sensitive,
-        "vehicle_context": vehicle_context,
-        "official_basis": official_basis,
-        "source_keys": source_keys,
-    }
-
-
-def save_launch_event(launch):
-    mission_name = safe_text(launch.get("name")) or "unknown-launch"
-    launch_time = launch.get("net")
-    country = safe_text(launch.get("country_code")) or "Unknown"
-    subcategory = safe_text(launch.get("mission_type")) or "orbital_launch"
-    provider = safe_text(launch.get("provider")) or "Unknown"
-
-    if pd.isna(launch_time):
-        return
-
-    if hasattr(launch_time, "isoformat"):
-        launch_time = launch_time.isoformat()
-
-    event_id = f"launch_{mission_name}_{launch_time}"
-
-    log_event(
-        {
-            "event_id": event_id,
-            "timestamp": launch_time,
-            "country": country,
-            "event_type": "launch",
-            "subcategory": subcategory,
-            "source": provider,
-            "sensitive": looks_sensitive(launch),
-        }
-    )
-
-
-@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def get_upcoming_launches():
-    url = f"https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit={UPCOMING_LIMIT}&mode=detailed"
-    raw = fetch_json_with_retry(url)["results"]
-    df = build_launch_rows(raw)
-    df = clean_time_col(df, "net")
-    if not df.empty:
-        df = df.sort_values("net")
-    return df
-
-
-@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def get_recent_launches():
-    url = f"https://ll.thespacedevs.com/2.2.0/launch/previous/?limit={RECENT_LIMIT}&mode=detailed"
-    raw = fetch_json_with_retry(url)["results"]
-    df = build_launch_rows(raw)
-    df = clean_time_col(df, "net")
-    if not df.empty:
-        df = df.sort_values("net", ascending=False)
-    return df
-
-
-def render_metric_card(title, value, detail, accent):
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="accent-bar" style="background:{accent};"></div>
-            <div class="metric-label">{title}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-detail">{detail}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def apply_filters(df: pd.DataFrame, search_query: str, providers):
-    filtered = df.copy()
-    if filtered.empty:
-        return filtered
-
-    if providers:
-        filtered = filtered[filtered["provider"].isin(providers)]
-
-    if search_query:
-        search_text = search_query.lower()
-        filtered = filtered[
-            filtered["name"].fillna("").str.lower().str.contains(search_text, na=False)
-            | filtered["provider"].fillna("").str.lower().str.contains(search_text, na=False)
-            | filtered["rocket"].fillna("").str.lower().str.contains(search_text, na=False)
-            | filtered["mission_type"].fillna("").str.lower().str.contains(search_text, na=False)
-            | filtered["location_name"].fillna("").str.lower().str.contains(search_text, na=False)
-        ]
-
-    return filtered.reset_index(drop=True)
-
-
-def build_launch_icon_html(color):
-    return f"""
-        <div style="position: relative; width: 32px; height: 32px; transform: translate(-16px, -16px);">
-            <div style="width: 32px; height: 32px; border-radius: 999px; background: rgba(8, 18, 30, 0.82);
-                        box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 12px 22px {color}44;
-                        display: flex; align-items: center; justify-content: center;">
-                <svg viewBox="0 0 24 24" width="16" height="16">
-                    <path d="M12 3c2.2 1.6 3.8 4.1 4.4 7.2l2.5 2-1.4 1.4-2.4-.6-1.2 1.6 1.2 4.1-1.5 1.4-2.6-3-2.6 3-1.5-1.4 1.2-4.1-1.2-1.6-2.4.6-1.4-1.4 2.5-2C8.2 7.1 9.8 4.6 12 3z"
-                          fill="{color}" stroke="#ffffff" stroke-width="0.75"></path>
-                </svg>
-            </div>
-        </div>
-    """
-
-
-def build_popup_html(row):
-    return f"""
-        <div style="min-width: 260px; font-family: Segoe UI, sans-serif;">
-            <div style="font-size: 15px; font-weight: 700; color: #09111f; margin-bottom: 6px;">
-                {html.escape(safe_text(row.get('name') or 'Unknown launch'))}
-            </div>
-            <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                <tr><td style="padding:4px 0; color:#5a6d85;">Provider</td><td style="padding:4px 0;">{html.escape(safe_text(row.get('provider') or 'Unknown'))}</td></tr>
-                <tr><td style="padding:4px 0; color:#5a6d85;">Rocket</td><td style="padding:4px 0;">{html.escape(safe_text(row.get('rocket') or 'Unknown'))}</td></tr>
-                <tr><td style="padding:4px 0; color:#5a6d85;">Mission</td><td style="padding:4px 0;">{html.escape(safe_text(row.get('mission_type') or 'Unknown'))}</td></tr>
-                <tr><td style="padding:4px 0; color:#5a6d85;">Time</td><td style="padding:4px 0;">{html.escape(format_time(row.get('net')))}</td></tr>
-                <tr><td style="padding:4px 0; color:#5a6d85;">Location</td><td style="padding:4px 0;">{html.escape(safe_text(row.get('location_name') or 'Unknown'))}</td></tr>
-                <tr><td style="padding:4px 0; color:#5a6d85;">Map layer</td><td style="padding:4px 0;">{html.escape(safe_text(row.get('map_layer') or 'Launch'))}</td></tr>
-            </table>
-        </div>
-    """
-
-
-def build_map_dataframe(upcoming_df, failed_df, sensitive_df):
-    frames = []
-
-    if not upcoming_df.empty:
-        upcoming_map = upcoming_df.copy()
-        upcoming_map["map_layer"] = "Upcoming"
-        upcoming_map["map_color"] = STATUS_COLORS["Upcoming"]
-        frames.append(upcoming_map)
-
-    if not failed_df.empty:
-        failed_map = failed_df.copy()
-        failed_map["map_layer"] = "Recent failure"
-        failed_map["map_color"] = STATUS_COLORS["Recent failure"]
-        frames.append(failed_map)
-
-    if not sensitive_df.empty:
-        sensitive_map = sensitive_df.copy()
-        sensitive_map["map_layer"] = "Sensitive"
-        sensitive_map["map_color"] = STATUS_COLORS["Sensitive"]
-        frames.append(sensitive_map)
-
-    if not frames:
-        return pd.DataFrame()
-
-    map_df = pd.concat(frames, ignore_index=True)
-    map_df = map_df.dropna(subset=["lat", "lon"]).copy()
-    map_df = map_df.drop_duplicates(subset=["name", "net", "map_layer"])
-    return map_df.reset_index(drop=True)
-
-
-def create_launch_map(map_df: pd.DataFrame, map_theme: str):
-    if map_df.empty:
-        return None
-
-    center_lat = map_df["lat"].mean()
-    center_lon = map_df["lon"].mean()
-
-    launch_map = folium.Map(
-        location=[center_lat, center_lon],
-        zoom_start=2,
-        control_scale=True,
-        prefer_canvas=True,
-        tiles=None,
-    )
-
-    for theme_name, theme_config in MAP_THEMES.items():
-        folium.TileLayer(
-            tiles=theme_config["tiles"],
-            attr=theme_config["attr"],
-            name=theme_name,
-            show=theme_name == map_theme,
-        ).add_to(launch_map)
-
-    Fullscreen(position="topright").add_to(launch_map)
-    MousePosition(
-        position="bottomright",
-        separator=" | ",
-        lng_first=False,
-        num_digits=2,
-        prefix="Lat / Lon",
-    ).add_to(launch_map)
-
-    for layer_name in ["Upcoming", "Recent failure", "Sensitive"]:
-        layer_rows = map_df[map_df["map_layer"] == layer_name]
-        if layer_rows.empty:
-            continue
-
-        layer_group = folium.FeatureGroup(name=layer_name, show=True)
-        for _, row in layer_rows.iterrows():
-            folium.Marker(
-                location=[row["lat"], row["lon"]],
-                tooltip=f"{safe_text(row.get('name'))} | {layer_name}",
-                popup=folium.Popup(build_popup_html(row), max_width=360),
-                icon=DivIcon(html=build_launch_icon_html(row["map_color"])),
-            ).add_to(layer_group)
-        layer_group.add_to(launch_map)
-
-    folium.LayerControl(collapsed=True).add_to(launch_map)
-    return launch_map
-
-
-def display_launch_table(df: pd.DataFrame):
-    if df.empty:
-        return df
-
-    display_df = df[
-        ["name", "net", "status", "provider", "rocket", "mission_type", "location_name"]
-    ].copy()
-    display_df["net"] = display_df["net"].apply(format_time)
-    display_df = display_df.rename(
-        columns={
-            "name": "Launch",
-            "net": "Time (UTC)",
-            "status": "Status",
-            "provider": "Provider",
-            "rocket": "Rocket",
-            "mission_type": "Mission Type",
-            "location_name": "Location",
-        }
-    )
-    return display_df
-
-
-inject_styles()
-
-st.markdown(
-    """
-    <div class="hero-card">
-        <div class="hero-kicker">LIVE ORBITAL OPERATIONS</div>
-        <h1 class="hero-title">Orbital Launch Monitor</h1>
-        <p class="hero-copy">
-            Monitor upcoming launches, recent failures, and publicly signaled sensitive missions from live launch feeds,
-            then automatically log real launch events into the Strategic Insights pipeline.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-launch_error = None
-recent_launch_error = None
-
-try:
-    launches_df = get_upcoming_launches()
-except Exception as error:
-    launches_df = pd.DataFrame()
-    launch_error = str(error)
-
-try:
-    recent_launches_df = get_recent_launches()
-except Exception as error:
-    recent_launches_df = pd.DataFrame()
-    recent_launch_error = str(error)
-
-if not launches_df.empty:
-    for _, launch_row in launches_df.iterrows():
-        save_launch_event(launch_row)
-
-if not recent_launches_df.empty:
-    for _, launch_row in recent_launches_df.iterrows():
-        save_launch_event(launch_row)
-
-failed_launches_df = pd.DataFrame()
-sensitive_launches_df = pd.DataFrame()
-
-if not recent_launches_df.empty:
-    now_utc = pd.Timestamp.utcnow()
-    failed_mask = (
-        recent_launches_df["status"]
-        .fillna("")
-        .str.lower()
-        .str.contains("failure", na=False)
-    )
-    failed_launches_df = recent_launches_df[failed_mask].copy()
-    failed_launches_df = failed_launches_df[
-        failed_launches_df["net"] >= now_utc - pd.Timedelta(days=30)
-    ].copy()
-
-    sensitive_mask = recent_launches_df.apply(looks_sensitive, axis=1)
-    sensitive_launches_df = recent_launches_df[sensitive_mask].copy()
-    sensitive_launches_df = sensitive_launches_df[
-        sensitive_launches_df["net"] >= now_utc - pd.Timedelta(days=120)
-    ].copy()
-
-all_providers = sorted(
-    {
-        provider
-        for provider in pd.concat(
-            [
-                launches_df.get("provider", pd.Series(dtype=str)),
-                recent_launches_df.get("provider", pd.Series(dtype=str)),
-            ],
-            ignore_index=True,
-        ).dropna()
-        if safe_text(provider)
-    }
-)
-
-with st.sidebar:
-    st.markdown("### Launch Controls")
-    refresh_clicked = st.button("Refresh launch feeds", use_container_width=True)
-    if refresh_clicked:
-        get_upcoming_launches.clear()
-        get_recent_launches.clear()
-        st.rerun()
-
-    search_query = st.text_input(
-        "Search launches",
-        placeholder="Launch, provider, rocket, mission, or location",
-    ).strip()
-
-    provider_filter = st.multiselect(
-        "Providers",
-        options=all_providers,
-        default=[],
-    )
-
-    st.markdown("### Map Layers")
-    show_upcoming = st.toggle("Upcoming launches", value=True)
-    show_failures = st.toggle("Recent failures", value=True)
-    show_sensitive = st.toggle("Sensitive launches", value=True)
-    map_theme = st.selectbox("Map theme", options=list(MAP_THEMES.keys()), index=1)
-
-filtered_upcoming_df = apply_filters(launches_df, search_query, provider_filter)
-filtered_failed_df = apply_filters(failed_launches_df, search_query, provider_filter)
-filtered_sensitive_df = apply_filters(sensitive_launches_df, search_query, provider_filter)
-
-map_df = build_map_dataframe(
-    filtered_upcoming_df if show_upcoming else pd.DataFrame(),
-    filtered_failed_df if show_failures else pd.DataFrame(),
-    filtered_sensitive_df if show_sensitive else pd.DataFrame(),
-)
-
-metric_columns = st.columns(4)
-with metric_columns[0]:
-    render_metric_card(
-        "Upcoming launches",
-        f"{len(filtered_upcoming_df):,}",
-        "Filtered view of the live upcoming schedule",
-        STATUS_COLORS["Upcoming"],
-    )
-with metric_columns[1]:
-    render_metric_card(
-        "Recent failures",
-        f"{len(filtered_failed_df):,}",
-        "Previous 30 days with failure status in public data",
-        STATUS_COLORS["Recent failure"],
-    )
-with metric_columns[2]:
-    render_metric_card(
-        "Sensitive launches",
-        f"{len(filtered_sensitive_df):,}",
-        "Publicly signaled government, military, security, navigation, surveillance, or secure-communications profiles",
-        STATUS_COLORS["Sensitive"],
-    )
-with metric_columns[3]:
-    if launch_error and recent_launch_error:
-        render_metric_card("Feed status", "Degraded", "Upcoming and recent feeds both had upstream issues", "#ff5f6d")
-    elif launch_error or recent_launch_error:
-        render_metric_card("Feed status", "Partial", "One of the two launch feeds is degraded", "#ff9e3d")
-    else:
-        render_metric_card("Feed status", "Online", "Upcoming and recent launch feeds loaded successfully", "#39d98a")
-
-st.markdown("")
-
-map_col, side_col = st.columns([3.1, 1.15], gap="large")
-
-with map_col:
-    st.markdown(
-        """
-        <div class="panel-card">
-            <div class="panel-title">Launch Site Map</div>
-            <div class="panel-copy">
-                Upcoming launches are cyan, recent failures are amber, and sensitive launch profiles are red.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if launch_error and recent_launch_error:
-        st.error("Launch map is unavailable because both upstream feeds are currently degraded.")
-    elif map_df.empty:
-        st.info("No launch sites match the current filters.")
-    else:
-        launch_map = create_launch_map(map_df, map_theme)
-        if launch_map is None:
-            st.info("No coordinates are available for the filtered launch records.")
-        else:
-            st_folium(launch_map, use_container_width=True, height=720)
-
-with side_col:
-    st.markdown("#### Next scheduled launch")
-    if filtered_upcoming_df.empty:
-        st.info("No upcoming launch matches the current filters.")
-    else:
-        next_launch = filtered_upcoming_df.sort_values("net").iloc[0]
-        st.markdown(
-            f"""
-            <div class="panel-card">
-                <div class="panel-title">{html.escape(safe_text(next_launch.get("name") or "Unknown launch"))}</div>
-                <div class="panel-copy">
-                    {html.escape(format_time(next_launch.get("net")))}<br>
-                    {html.escape(safe_text(next_launch.get("provider") or "Unknown provider"))}<br>
-                    {html.escape(safe_text(next_launch.get("rocket") or "Unknown rocket"))}<br>
-                    {html.escape(safe_text(next_launch.get("location_name") or "Unknown location"))}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("#### Official context basis")
-    st.markdown(
-        """
-        <div class="panel-card">
-            <div class="panel-title">Why a launch may be sensitive</div>
-            <div class="panel-copy">
-                The explanations in this section now use country-aware logic and avoid false U.S. tagging caused by loose substring matching.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.caption("Mission context below is best-effort and English-language only. It uses official source pages where possible based on mission family, launch geography, and country-level cues.")
-
-tab_upcoming, tab_failed, tab_sensitive, tab_context = st.tabs(
-    ["Upcoming Launches", "Recent Failures", "Sensitive Missions", "Official Mission Context"]
-)
-
-with tab_upcoming:
-    st.markdown("### Upcoming Launches")
-    if launch_error:
-        st.warning("The upstream upcoming-launch feed is temporarily unavailable.")
-    elif filtered_upcoming_df.empty:
-        st.info("No upcoming launches match the current filters.")
-    else:
-        st.dataframe(display_launch_table(filtered_upcoming_df), use_container_width=True, hide_index=True)
-
-with tab_failed:
-    st.markdown("### Recent Failed Launches")
-    if recent_launch_error:
-        st.warning("The recent-launch feed is temporarily unavailable.")
-    elif filtered_failed_df.empty:
-        st.success("No failed launches were found in the last 30 days for the current filters.")
-    else:
-        st.dataframe(display_launch_table(filtered_failed_df), use_container_width=True, hide_index=True)
-
-with tab_sensitive:
-    st.markdown("### Publicly Signaled Sensitive Launches")
-    st.caption("This table uses public naming, mission labels, launch metadata, and broader dual-use indicators to flag launches that look government, military, intelligence, navigation, surveillance, or secure-communications linked.")
-    if recent_launch_error:
-        st.warning("Sensitive launch detection depends on the recent-launch feed, which is temporarily unavailable.")
-    elif filtered_sensitive_df.empty:
-        st.info("No publicly signaled sensitive launches match the current filters.")
-    else:
-        st.dataframe(display_launch_table(filtered_sensitive_df), use_container_width=True, hide_index=True)
-
-with tab_context:
-    st.markdown("### Official Mission Context")
-    st.caption("Possible reasons a launch may be sensitive, paired with official English-language mission and programme references from the most relevant country or agency when available.")
-    if recent_launch_error:
-        st.warning("Mission context is unavailable because the recent-launch feed could not be loaded.")
-    elif filtered_sensitive_df.empty:
-        st.info("No sensitive launch profiles are available for context right now.")
-    else:
-        context_rows = filtered_sensitive_df.head(min(10, len(filtered_sensitive_df))).copy()
-        context_records = []
-        for _, row in context_rows.iterrows():
-            assessment = assess_sensitive_launch(row)
-            context_records.append(
-                {
-                    "Launch": safe_text(row.get("name")),
-                    "Time (UTC)": format_time(row.get("net")),
-                    "Country / Context": assessment["country_group"],
-                    "Provider": safe_text(row.get("provider")),
-                    "Rocket": safe_text(row.get("rocket")),
-                    "Likely Role": assessment["likely_role"],
-                    "Why It Could Be Sensitive": assessment["why_sensitive"],
-                    "Vehicle Context": assessment["vehicle_context"],
-                    "Official Basis": assessment["official_basis"],
-                    "sources": assessment["source_keys"],
-                }
-            )
-
-        context_df = pd.DataFrame(context_records)
-        summary_df = context_df[
-            ["Launch", "Time (UTC)", "Country / Context", "Provider", "Rocket", "Likely Role", "Official Basis"]
-        ].copy()
-        st.dataframe(summary_df, use_container_width=True, hide_index=True)
-
-        for _, row in context_df.iterrows():
-            st.markdown(
-                f"""
-                <div class="panel-card">
-                    <div class="panel-title">{html.escape(row['Launch'])}</div>
-                    <div class="panel-copy">
-                        <strong>Country / context:</strong> {html.escape(row['Country / Context'])}<br>
-                        <strong>Likely role:</strong> {html.escape(row['Likely Role'])}<br>
-                        <strong>Why it could be sensitive:</strong> {html.escape(row['Why It Could Be Sensitive'])}<br>
-                        <strong>Launch vehicle context:</strong> {html.escape(row['Vehicle Context'] or 'No extra vehicle-specific note applied for this launch.')}<br>
-                        <strong>Official basis:</strong> {html.escape(row['Official Basis'])}
-                    </div>
-                    {source_links_html(row['sources'])}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-st.markdown("---")
-st.caption(
-    f"Loaded {len(filtered_upcoming_df):,} upcoming launches, {len(filtered_failed_df):,} recent failures, and "
-    f"{len(filtered_sensitive_df):,} sensitive launch profiles under the current filters."
-)
+            vehicle_context =
