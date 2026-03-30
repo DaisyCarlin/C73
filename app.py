@@ -344,25 +344,7 @@ with module_columns[2]:
         ],
     )
 
-st.markdown("")
-
-overview_col, nav_col = st.columns([2.1, 1], gap="large")
 
 
-with nav_col:
-    st.markdown(
-        """
-        <div class="panel-card-tight">
-            <div class="panel-title">Navigation</div>
-            <div class="panel-copy">
-                Use the Streamlit sidebar to move between the platform's core orbital modules.
-            </div>
-            <div class="nav-line">Launch Intelligence</div>
-            <div class="nav-line">Satellite Watch</div>
-            <div class="nav-line">Strategic Insights</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
