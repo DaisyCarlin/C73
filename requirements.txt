@@ -2,4 +2,7 @@ streamlit
 pandas
 requests
 plotly
-skyfield
+folium
+streamlit-folium
+websocket-client
+sgp4
