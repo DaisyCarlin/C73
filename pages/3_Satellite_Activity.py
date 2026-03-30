@@ -15,7 +15,7 @@ from sgp4.api import Satrec, jday
 from streamlit_folium import st_folium
 from urllib3.util.retry import Retry
 
-st.set_page_config(page_title="Space Radar", layout="wide")
+st.set_page_config(page_title="Strategic Space Watch", layout="wide")
 
 SPACE_TRACK_LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
 SPACE_TRACK_GP_URL = (
@@ -30,6 +30,7 @@ SPACE_TRACK_GP_URL = (
 REQUEST_TIMEOUT_SECONDS = 12
 QUERY_CACHE_TTL_SECONDS = 3600
 DISK_CACHE_FILE = "spacetrack_gp_cache.pkl"
+AUTO_REFRESH_SECONDS = 3600
 
 MAP_THEMES = {
     "Light": {"tiles": "CartoDB positron", "attr": None},
@@ -40,27 +41,14 @@ MAP_THEMES = {
     "Dark": {"tiles": "CartoDB dark_matter", "attr": None},
 }
 
-CATEGORY_COLORS = {
-    "Stations": "#7dd3fc",
-    "Navigation": "#58a6ff",
-    "Weather": "#39d98a",
-    "Earth Observation": "#ffb454",
-    "Communications": "#14b8a6",
-    "Military": "#ff5f6d",
-    "Science": "#c084fc",
-    "Other": "#94a3b8",
+GROUP_COLORS = {
+    "Military / Intel": "#ff5f6d",
+    "Chinese Strategic": "#ff9e3d",
+    "Russian Strategic": "#58a6ff",
+    "Navigation": "#39d98a",
+    "Other Strategic": "#c084fc",
 }
-
-PRIORITY_RANKS = {
-    "Stations": 0,
-    "Military": 1,
-    "Navigation": 2,
-    "Weather": 3,
-    "Earth Observation": 4,
-    "Communications": 5,
-    "Science": 6,
-    "Other": 7,
-}
+DEFAULT_MARKER_COLOR = "#ff5f6d"
 
 
 def inject_styles():
@@ -73,6 +61,9 @@ def inject_styles():
                 --stroke:rgba(130,161,191,.22);
                 --text-main:#e8f1fb;
                 --text-soft:#91a9c3;
+                --panel-bg:linear-gradient(180deg, rgba(10,23,37,.9), rgba(14,31,49,.82));
+                --hero-bg:linear-gradient(145deg, rgba(10,21,35,.92), rgba(15,31,49,.86));
+                --metric-bg:linear-gradient(180deg, rgba(12,24,39,.9), rgba(14,32,50,.76));
             }
             .stApp {
                 background:
@@ -87,24 +78,30 @@ def inject_styles():
                 border-right:1px solid var(--stroke);
             }
             [data-testid="stSidebar"] * { color:var(--text-main); }
-            .hero-card,.panel-card,.metric-card {
+            .hero-card,.panel-card,.metric-card,.insight-card {
                 border:1px solid var(--stroke);
                 border-radius:22px;
                 box-shadow:0 12px 28px rgba(4,9,18,.22);
             }
             .hero-card {
-                background:linear-gradient(145deg, rgba(10,21,35,.92), rgba(15,31,49,.86));
-                padding:1.35rem 1.5rem;
+                background:var(--hero-bg);
+                padding:1.4rem 1.6rem;
                 margin-bottom:1rem;
             }
             .panel-card {
-                background:linear-gradient(180deg, rgba(10,23,37,.9), rgba(14,31,49,.82));
+                background:var(--panel-bg);
                 padding:1rem 1rem .85rem 1rem;
+                margin-bottom:.75rem;
             }
             .metric-card {
-                background:linear-gradient(180deg, rgba(12,24,39,.9), rgba(14,32,50,.76));
+                background:var(--metric-bg);
                 padding:1rem 1rem .95rem 1rem;
                 min-height:120px;
+            }
+            .insight-card {
+                background:var(--panel-bg);
+                padding:1rem 1rem .95rem 1rem;
+                min-height:138px;
             }
             .hero-kicker {
                 letter-spacing:.16rem;
@@ -112,17 +109,19 @@ def inject_styles():
                 font-weight:700;
                 color:#84d7ff;
                 margin-bottom:.4rem;
+                text-transform:uppercase;
             }
             .hero-title {
-                font-size:2.2rem;
-                line-height:1.05;
-                font-weight:700;
+                font-size:2.45rem;
+                line-height:1.04;
+                font-weight:750;
                 margin:0;
                 color:var(--text-main);
             }
-            .hero-copy,.panel-copy,.metric-detail {
+            .hero-copy,.panel-copy,.metric-detail,.insight-copy {
                 color:var(--text-soft);
-                font-size:.94rem;
+                font-size:.96rem;
+                line-height:1.55;
             }
             .metric-label {
                 font-size:.8rem;
@@ -133,7 +132,7 @@ def inject_styles():
             }
             .metric-value {
                 font-size:2rem;
-                font-weight:700;
+                font-weight:740;
                 line-height:1;
                 margin-bottom:.35rem;
                 color:var(--text-main);
@@ -144,20 +143,41 @@ def inject_styles():
                 border-radius:999px;
                 margin-bottom:.8rem;
             }
-            .panel-title {
+            .panel-title, .insight-title {
                 font-size:1rem;
                 font-weight:700;
                 margin-bottom:.25rem;
                 color:var(--text-main);
             }
-            .stTabs [data-baseweb="tab-list"] { gap:.6rem; }
-            .stTabs [data-baseweb="tab"] {
-                border-radius:999px;
-                background:rgba(15,31,49,.7);
-                border:1px solid var(--stroke);
+            .takeaway-list {
+                margin:0;
+                padding-left:1.15rem;
                 color:var(--text-main);
-                padding-left:1rem;
-                padding-right:1rem;
+            }
+            .takeaway-list li {
+                margin:.5rem 0;
+                line-height:1.5;
+            }
+            .chip-row {
+                display:flex;
+                flex-wrap:wrap;
+                gap:.45rem;
+                margin-top:.45rem;
+            }
+            .chip {
+                display:inline-block;
+                padding:.28rem .6rem;
+                border-radius:999px;
+                font-size:.76rem;
+                font-weight:700;
+                color:#dff4ff;
+                background:rgba(56,189,248,.14);
+                border:1px solid rgba(56,189,248,.24);
+            }
+            .subtle-note {
+                color:var(--text-soft);
+                font-size:.86rem;
+                margin-top:.25rem;
             }
             .stDataFrame, div[data-testid="stTable"] {
                 border-radius:18px;
@@ -165,6 +185,26 @@ def inject_styles():
                 border:1px solid var(--stroke);
             }
         </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def inject_hourly_refresh(enabled: bool):
+    if not enabled:
+        return
+
+    st.markdown(
+        f"""
+        <script>
+            (function() {{
+                if (window.spaceRadarHourlyRefreshSet) return;
+                window.spaceRadarHourlyRefreshSet = true;
+                setTimeout(function() {{
+                    window.location.reload();
+                }}, {AUTO_REFRESH_SECONDS * 1000});
+            }})();
+        </script>
         """,
         unsafe_allow_html=True,
     )
@@ -178,6 +218,19 @@ def render_metric_card(title, value, detail, accent):
             <div class="metric-label">{title}</div>
             <div class="metric-value">{value}</div>
             <div class="metric-detail">{detail}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_insight_card(title, value, copy):
+    st.markdown(
+        f"""
+        <div class="insight-card">
+            <div class="insight-title">{html.escape(title)}</div>
+            <div style="font-size:1.7rem; font-weight:760; margin:.18rem 0 .38rem 0;">{html.escape(value)}</div>
+            <div class="insight-copy">{html.escape(copy)}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -205,25 +258,54 @@ def orbit_regime(altitude_km):
     return "HEO"
 
 
-def classify_satellite(name):
+def is_strategic_asset(name: str) -> bool:
     text = safe_str(name).upper()
 
-    if any(k in text for k in ["ISS", "TIANGONG", "CSS", "CREW", "SOYUZ", "PROGRESS"]):
-        return "Stations"
-    if any(k in text for k in ["GPS", "GALILEO", "GLONASS", "BEIDOU", "NAVSTAR", "QZSS", "IRNSS", "NAVIC"]):
-        return "Navigation"
-    if any(k in text for k in ["NOAA", "GOES", "METEOR", "HIMAWARI", "FENGYUN", "METOP", "DMSP"]):
-        return "Weather"
-    if any(k in text for k in ["LANDSAT", "SENTINEL", "TERRA", "AQUA", "WORLDVIEW", "PLEIADES", "SPOT", "KOMPSAT", "RESURS", "GAOFEN"]):
-        return "Earth Observation"
-    if any(k in text for k in ["STARLINK", "ONEWEB", "IRIDIUM", "INTELSAT", "SES", "EUTELSAT", "INMARSAT", "VIASAT", "TDRS", "O3B"]):
-        return "Communications"
-    if any(k in text for k in ["NROL", "USA ", "COSMOS", "YAOGAN", "KH-", "SBIRS", "AEHF", "MUOS", "MILSTAR"]):
-        return "Military"
-    if any(k in text for k in ["HUBBLE", "JWST", "XMM", "CHANDRAYAAN", "MARS", "LUNAR", "GAIA", "KEPLER"]):
-        return "Science"
+    keywords = [
+        "NROL",
+        "USA ",
+        "KH-",
+        "SBIRS",
+        "AEHF",
+        "MUOS",
+        "MILSTAR",
+        "DSP",
+        "GSSAP",
+        "TRUMPET",
+        "LACROSSE",
+        "ONYX",
+        "YAOGAN",
+        "TIANHUI",
+        "GAOFEN",
+        "COSMOS",
+        "GLONASS",
+        "NAVSTAR",
+        "GPS",
+        "BEIDOU",
+        "GALILEO",
+        "IRNSS",
+        "NAVIC",
+        "QZSS",
+        "DEFENCE",
+        "DEFENSE",
+        "INTEL",
+    ]
 
-    return "Other"
+    return any(keyword in text for keyword in keywords)
+
+
+def strategic_group(name: str) -> str:
+    text = safe_str(name).upper()
+
+    if any(k in text for k in ["NROL", "USA ", "KH-", "SBIRS", "AEHF", "MUOS", "MILSTAR", "DSP", "GSSAP", "TRUMPET", "LACROSSE", "ONYX"]):
+        return "Military / Intel"
+    if any(k in text for k in ["YAOGAN", "TIANHUI", "GAOFEN"]):
+        return "Chinese Strategic"
+    if any(k in text for k in ["COSMOS", "GLONASS"]):
+        return "Russian Strategic"
+    if any(k in text for k in ["NAVSTAR", "GPS", "BEIDOU", "GALILEO", "IRNSS", "NAVIC", "QZSS"]):
+        return "Navigation"
+    return "Other Strategic"
 
 
 def build_session():
@@ -315,17 +397,17 @@ def search_blob(row):
         [
             safe_str(row.get("name")),
             safe_str(row.get("norad_id")),
-            safe_str(row.get("category")),
-            safe_str(row.get("object_type")),
             safe_str(row.get("country")),
             safe_str(row.get("orbit_regime")),
+            safe_str(row.get("strategic_group")),
+            safe_str(row.get("object_type")),
         ]
     ).lower()
 
 
-def save_cache(df, loaded_at_iso, error_message):
+def save_cache(full_df, loaded_at_iso, error_message):
     payload = {
-        "df": df,
+        "df": full_df,
         "loaded_at_iso": loaded_at_iso,
         "error_message": error_message,
     }
@@ -368,16 +450,15 @@ def fetch_spacetrack_gp(_identity, _password):
     return payload
 
 
-def build_dataset(identity, password, selected_categories, limit_per_category):
+def build_full_dataset(identity, password):
     now_utc = datetime.now(timezone.utc)
     raw_records = fetch_spacetrack_gp(identity, password)
 
     rows = []
     for record in raw_records:
         name = record.get("OBJECT_NAME") or f"NORAD {record.get('NORAD_CAT_ID', 'Unknown')}"
-        category = classify_satellite(name)
 
-        if category not in selected_categories:
+        if not is_strategic_asset(name):
             continue
 
         state = propagate_from_record(record, now_utc)
@@ -385,14 +466,16 @@ def build_dataset(identity, password, selected_categories, limit_per_category):
             continue
 
         lat, lon, alt, speed = state
+        group = strategic_group(name)
 
         rows.append(
             {
                 "name": name,
                 "norad_id": str(record.get("NORAD_CAT_ID", "")),
-                "category": category,
+                "category": "Strategic asset",
+                "strategic_group": group,
                 "object_type": record.get("OBJECT_TYPE", ""),
-                "country": record.get("COUNTRY_CODE", ""),
+                "country": record.get("COUNTRY_CODE", "") or "Unknown",
                 "launch_date": record.get("LAUNCH_DATE", ""),
                 "epoch": record.get("EPOCH", ""),
                 "latitude": lat,
@@ -400,45 +483,60 @@ def build_dataset(identity, password, selected_categories, limit_per_category):
                 "altitude_km": alt,
                 "speed_kms": speed,
                 "orbit_regime": orbit_regime(alt),
+                "marker_color": GROUP_COLORS.get(group, DEFAULT_MARKER_COLOR),
             }
         )
 
     if not rows:
-        raise RuntimeError("No propagatable satellite positions were produced for the current category selection.")
+        raise RuntimeError("No propagatable strategic satellite positions were produced from the current Space-Track response.")
 
     df = pd.DataFrame(rows)
-
-    if "altitude_km" in df.columns and "orbit_regime" not in df.columns:
-        df["orbit_regime"] = df["altitude_km"].apply(orbit_regime)
-
-    df["marker_color"] = df["category"].map(CATEGORY_COLORS).fillna("#94a3b8")
-    df["priority_rank"] = df["category"].map(PRIORITY_RANKS).fillna(99)
     df["search_blob"] = df.apply(search_blob, axis=1)
-
-    limited_frames = []
-    for category in selected_categories:
-        subset = df[df["category"] == category].sort_values(["name"]).head(limit_per_category)
-        if not subset.empty:
-            limited_frames.append(subset)
-
-    if limited_frames:
-        df = pd.concat(limited_frames, ignore_index=True)
 
     loaded_at_iso = now_utc.isoformat()
     save_cache(df, loaded_at_iso, None)
     return df.reset_index(drop=True), loaded_at_iso
 
 
-def load_dataset(identity, password, selected_categories, limit_per_category):
+def sample_visual_dataset(full_df, limit_count):
+    if full_df.empty:
+        return full_df.iloc[0:0].copy()
+
+    groups = sorted(full_df["strategic_group"].dropna().unique().tolist())
+    if not groups:
+        return full_df.head(limit_count).copy()
+
+    per_group = max(1, limit_count // len(groups))
+    frames = []
+
+    for group in groups:
+        subset = full_df[full_df["strategic_group"] == group].copy()
+        subset = subset.sort_values(["country", "name"]).head(per_group)
+        if not subset.empty:
+            frames.append(subset)
+
+    sampled = pd.concat(frames, ignore_index=True) if frames else full_df.iloc[0:0].copy()
+
+    if len(sampled) < limit_count:
+        already = set(sampled["norad_id"].tolist()) if "norad_id" in sampled.columns else set()
+        remainder = full_df[~full_df["norad_id"].isin(already)].sort_values(["country", "name"]).head(limit_count - len(sampled))
+        sampled = pd.concat([sampled, remainder], ignore_index=True)
+
+    return sampled.head(limit_count).reset_index(drop=True)
+
+
+def load_dataset(identity, password, limit_count):
     try:
-        df, loaded_at_iso = build_dataset(identity, password, selected_categories, limit_per_category)
-        return df, loaded_at_iso, "live", None
+        full_df, loaded_at_iso = build_full_dataset(identity, password)
+        visual_df = sample_visual_dataset(full_df, limit_count)
+        return full_df, visual_df, loaded_at_iso, "live", None
     except Exception as error:
         cached = load_cache()
         if cached is not None:
-            cached_df, cached_loaded_at, _ = cached
-            return cached_df, cached_loaded_at, "cached_live", str(error)
-        return pd.DataFrame(), None, "unavailable", str(error)
+            cached_full_df, cached_loaded_at, _ = cached
+            visual_df = sample_visual_dataset(cached_full_df, limit_count)
+            return cached_full_df, visual_df, cached_loaded_at, "cached_live", str(error)
+        return pd.DataFrame(), pd.DataFrame(), None, "unavailable", str(error)
 
 
 def apply_filters(df, search_query, regimes):
@@ -461,14 +559,15 @@ def popup_html(row):
                     <div style="font-size:15px; font-weight:700; color:#09111f;">{html.escape(safe_str(row.get("name") or "Unknown object"))}</div>
                     <div style="font-size:12px; color:#5a6d85;">NORAD {html.escape(safe_str(row.get("norad_id") or "Unknown"))}</div>
                 </div>
-                <div style="background:{row.get("marker_color", "#7dd3fc")}; color:#fff; font-size:11px; font-weight:700; border-radius:999px; padding:5px 8px;">
-                    {html.escape(safe_str(row.get("category") or "Tracked"))}
+                <div style="background:{row.get("marker_color", DEFAULT_MARKER_COLOR)}; color:#fff; font-size:11px; font-weight:700; border-radius:999px; padding:5px 8px;">
+                    {html.escape(safe_str(row.get("strategic_group") or "Strategic"))}
                 </div>
             </div>
             <table style="width:100%; border-collapse:collapse; font-size:12px;">
                 <tr><td style="padding:4px 0; color:#5a6d85;">Type</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("object_type") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Country</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("country") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Orbit</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("orbit_regime") or "Unknown"))}</td></tr>
+                <tr><td style="padding:4px 0; color:#5a6d85;">Group</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("strategic_group") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Altitude</td><td style="padding:4px 0;">{float(row.get("altitude_km")):,.0f} km</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Velocity</td><td style="padding:4px 0;">{float(row.get("speed_kms")):.2f} km/s</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Epoch</td><td style="padding:4px 0;">{html.escape(format_time(row.get("epoch")))}</td></tr>
@@ -478,7 +577,7 @@ def popup_html(row):
 
 
 def satellite_icon_html(row, show_label):
-    color = row.get("marker_color", "#7dd3fc")
+    color = row.get("marker_color", DEFAULT_MARKER_COLOR)
     label_html = ""
 
     if show_label:
@@ -504,7 +603,7 @@ def create_map(df, map_theme, show_labels):
     if coords.empty:
         return None, False
 
-    satellite_map = folium.Map(location=[16, 0], zoom_start=2, control_scale=True, prefer_canvas=True, tiles=None)
+    satellite_map = folium.Map(location=[18, 0], zoom_start=2, control_scale=True, prefer_canvas=True, tiles=None)
 
     for theme_name, theme_config in MAP_THEMES.items():
         folium.TileLayer(
@@ -517,13 +616,13 @@ def create_map(df, map_theme, show_labels):
     Fullscreen(position="topright").add_to(satellite_map)
     MousePosition(position="bottomright", separator=" | ", lng_first=False, num_digits=3, prefix="Lat / Lon").add_to(satellite_map)
 
-    marker_layer = folium.FeatureGroup(name="Satellites", show=True)
+    marker_layer = folium.FeatureGroup(name="Strategic assets", show=True)
     effective_labels = show_labels and len(coords) <= 60
 
     for _, row in coords.iterrows():
         folium.Marker(
             location=[row["latitude"], row["longitude"]],
-            tooltip=f"{safe_str(row.get('name'))} | {safe_str(row.get('category'))}",
+            tooltip=f"{safe_str(row.get('name'))} | {safe_str(row.get('strategic_group'))}",
             popup=folium.Popup(popup_html(row), max_width=360),
             icon=DivIcon(html=satellite_icon_html(row, effective_labels)),
         ).add_to(marker_layer)
@@ -533,76 +632,152 @@ def create_map(df, map_theme, show_labels):
     return satellite_map, effective_labels
 
 
-def priority_table(df):
+def strategic_country_summary_table(df):
     if df.empty:
         return df
-    table = df[["name", "category", "object_type", "country", "norad_id", "orbit_regime", "altitude_km", "speed_kms"]].copy()
-    table["altitude_km"] = table["altitude_km"].round(0)
-    table["speed_kms"] = table["speed_kms"].round(2)
-    return table.rename(
-        columns={
-            "name": "Satellite",
-            "category": "Category",
-            "object_type": "Type",
-            "country": "Country",
-            "norad_id": "NORAD",
-            "orbit_regime": "Orbit",
-            "altitude_km": "Altitude (km)",
-            "speed_kms": "Velocity (km/s)",
-        }
+
+    top_group = (
+        df.groupby(["country", "strategic_group"])
+        .size()
+        .reset_index(name="count")
+        .sort_values(["country", "count", "strategic_group"], ascending=[True, False, True])
+        .drop_duplicates(subset=["country"])
+        .rename(columns={"strategic_group": "Top Group"})
     )
 
+    top_orbit = (
+        df.groupby(["country", "orbit_regime"])
+        .size()
+        .reset_index(name="count")
+        .sort_values(["country", "count", "orbit_regime"], ascending=[True, False, True])
+        .drop_duplicates(subset=["country"])
+        .rename(columns={"orbit_regime": "Main Orbit"})
+    )
 
-def summary_table(df):
-    if df.empty:
-        return df
     summary = (
-        df.groupby("category", dropna=False)
+        df.groupby("country", dropna=False)
         .agg(
             Objects=("name", "size"),
-            Mean_Altitude_km=("altitude_km", "mean"),
-            Mean_Velocity_kms=("speed_kms", "mean"),
             Example_Object=("name", "first"),
         )
         .reset_index()
-    )
-    summary["Mean_Altitude_km"] = summary["Mean_Altitude_km"].round(0)
-    summary["Mean_Velocity_kms"] = summary["Mean_Velocity_kms"].round(2)
-    return summary.rename(
-        columns={
-            "category": "Category",
-            "Mean_Altitude_km": "Mean Altitude (km)",
-            "Mean_Velocity_kms": "Mean Velocity (km/s)",
-            "Example_Object": "Example Object",
-        }
+        .rename(columns={"country": "Country"})
     )
 
+    summary = summary.merge(top_group[["country", "Top Group"]], left_on="Country", right_on="country", how="left").drop(columns=["country"])
+    summary = summary.merge(top_orbit[["country", "Main Orbit"]], left_on="Country", right_on="country", how="left").drop(columns=["country"])
 
-def feed_table(df):
+    return summary[["Country", "Objects", "Top Group", "Main Orbit", "Example_Object"]].rename(
+        columns={"Example_Object": "Example Object"}
+    ).sort_values(["Objects", "Country"], ascending=[False, True]).reset_index(drop=True)
+
+
+def strategic_feed_table(df):
     if df.empty:
         return df
+
     table = df[
-        ["name", "norad_id", "category", "object_type", "country", "orbit_regime", "altitude_km", "speed_kms", "latitude", "longitude", "launch_date"]
+        [
+            "name",
+            "strategic_group",
+            "norad_id",
+            "object_type",
+            "country",
+            "orbit_regime",
+            "altitude_km",
+            "speed_kms",
+            "launch_date",
+        ]
     ].copy()
+
     table["altitude_km"] = table["altitude_km"].round(0)
     table["speed_kms"] = table["speed_kms"].round(2)
-    table["latitude"] = table["latitude"].round(2)
-    table["longitude"] = table["longitude"].round(2)
+
     return table.rename(
         columns={
-            "name": "Satellite",
+            "name": "Object",
+            "strategic_group": "Group",
             "norad_id": "NORAD",
-            "category": "Category",
             "object_type": "Type",
             "country": "Country",
             "orbit_regime": "Orbit",
             "altitude_km": "Altitude (km)",
             "speed_kms": "Velocity (km/s)",
-            "latitude": "Latitude",
-            "longitude": "Longitude",
             "launch_date": "Launch Date",
         }
     )
+
+
+def build_takeaways(df: pd.DataFrame) -> list[str]:
+    if df.empty:
+        return ["No strategic objects match the current filters, so no geopolitical takeaways can be generated yet."]
+
+    takeaways = []
+
+    country_counts = df.groupby("country").size().sort_values(ascending=False)
+    group_counts = df.groupby("strategic_group").size().sort_values(ascending=False)
+    orbit_counts = df.groupby("orbit_regime").size().sort_values(ascending=False)
+
+    top_country = country_counts.index[0]
+    top_country_count = int(country_counts.iloc[0])
+    total_count = int(country_counts.sum())
+    top_country_share = (top_country_count / total_count * 100.0) if total_count else 0.0
+
+    top_group = group_counts.index[0]
+    top_group_count = int(group_counts.iloc[0])
+    top_group_share = (top_group_count / total_count * 100.0) if total_count else 0.0
+
+    top_orbit = orbit_counts.index[0]
+    top_orbit_count = int(orbit_counts.iloc[0])
+    top_orbit_share = (top_orbit_count / total_count * 100.0) if total_count else 0.0
+
+    top_three_share = 0.0
+    if len(country_counts) > 0 and total_count:
+        top_three_share = float(country_counts.head(3).sum() / total_count * 100.0)
+
+    takeaways.append(
+        f"{top_country} currently has the largest strategic orbital footprint in this view, with {top_country_count:,} tracked assets "
+        f"representing about {top_country_share:.0f}% of the filtered set."
+    )
+    takeaways.append(
+        f"{top_group} is the dominant strategic layer right now, accounting for roughly {top_group_share:.0f}% of tracked assets."
+    )
+    takeaways.append(
+        f"{top_orbit} is the main orbital regime in the filtered picture, which suggests the current view is weighted toward that mission profile."
+    )
+    takeaways.append(
+        f"The strategic picture is concentrated: the top 3 countries account for about {top_three_share:.0f}% of the assets in this filtered set."
+    )
+
+    if "Military / Intel" in group_counts.index:
+        mil_count = int(group_counts["Military / Intel"])
+        mil_share = (mil_count / total_count * 100.0) if total_count else 0.0
+        takeaways.append(
+            f"Military and intelligence-linked systems still make up a meaningful share of the picture at about {mil_share:.0f}% of tracked assets."
+        )
+
+    return takeaways[:5]
+
+
+def top_country_label(df: pd.DataFrame) -> str:
+    if df.empty:
+        return "None"
+    counts = df.groupby("country").size().sort_values(ascending=False)
+    return str(counts.index[0])
+
+
+def top_group_label(df: pd.DataFrame) -> str:
+    if df.empty:
+        return "None"
+    counts = df.groupby("strategic_group").size().sort_values(ascending=False)
+    return str(counts.index[0])
+
+
+def top_orbit_label(df: pd.DataFrame) -> str:
+    if df.empty:
+        return "None"
+    counts = df.groupby("orbit_regime").size().sort_values(ascending=False)
+    return str(counts.index[0])
 
 
 inject_styles()
@@ -610,10 +785,11 @@ inject_styles()
 st.markdown(
     """
     <div class="hero-card">
-        <div class="hero-kicker">SPACE-TRACK ORBITAL WATCH</div>
-        <h1 class="hero-title">Space Radar</h1>
+        <div class="hero-kicker">Strategic Orbital Watch</div>
+        <h1 class="hero-title">Strategic Space Watch</h1>
         <p class="hero-copy">
-            A real-data orbital watchboard using Space-Track GP elements, propagated into current satellite positions.
+            Track state-linked orbital infrastructure and quickly understand which countries dominate
+            navigation, military, intelligence, and other strategic public space assets.
         </p>
     </div>
     """,
@@ -631,46 +807,50 @@ if not identity or not password:
     st.stop()
 
 with st.sidebar:
-    st.markdown("### Radar Filters")
-    category_options = list(CATEGORY_COLORS.keys())
-    selected_categories = st.multiselect(
-        "Track categories",
-        options=category_options,
-        default=["Stations", "Navigation", "Weather", "Military"],
-    )
-    limit_per_category = st.slider("Objects per category", min_value=2, max_value=20, value=5)
-    search_query = st.text_input("Search satellites", placeholder="Satellite, NORAD, country, or type").strip()
+    st.markdown("### Strategic Watch Filters")
+    limit_count = st.slider("Live map sample", min_value=20, max_value=300, value=100, step=10)
+    search_query = st.text_input("Search strategic assets", placeholder="Object, NORAD, country, group, or type").strip()
     regimes = st.multiselect(
         "Orbit regimes",
         options=["LEO", "MEO", "GEO", "HEO"],
         default=["LEO", "MEO", "GEO", "HEO"],
     )
 
-    st.markdown("### Map Layers")
+    st.markdown("### Map")
     map_theme = st.selectbox("Map theme", options=list(MAP_THEMES.keys()), index=1)
-    show_labels = st.toggle("Show satellite labels", value=False)
+    show_labels = st.toggle("Show labels", value=False)
 
-if not selected_categories:
-    st.warning("Choose at least one category to build the radar view.")
-    st.stop()
+    st.markdown("### Refresh")
+    auto_refresh_hourly = st.toggle("Auto-refresh every hour", value=True)
+    manual_refresh = st.button("Refresh now", use_container_width=True)
 
-with st.spinner("Loading Space-Track orbital data..."):
-    satellites_df, loaded_at_iso, data_source, data_error = load_dataset(
+if manual_refresh:
+    fetch_spacetrack_gp.clear()
+    st.rerun()
+
+inject_hourly_refresh(auto_refresh_hourly)
+
+with st.spinner("Loading strategic orbital data..."):
+    full_satellites_df, satellites_df, loaded_at_iso, data_source, data_error = load_dataset(
         identity,
         password,
-        selected_categories,
-        limit_per_category,
+        limit_count,
     )
 
+filtered_full_df = apply_filters(full_satellites_df, search_query, regimes)
 filtered_df = apply_filters(satellites_df, search_query, regimes)
 
-priority_df = (
-    filtered_df.sort_values(["priority_rank", "altitude_km", "name"]).head(20).copy()
-    if not filtered_df.empty and "priority_rank" in filtered_df.columns
-    else pd.DataFrame()
+country_count = filtered_full_df["country"].nunique() if not filtered_full_df.empty else 0
+group_count = filtered_full_df["strategic_group"].nunique() if not filtered_full_df.empty else 0
+
+military_intel_df = (
+    filtered_full_df[filtered_full_df["strategic_group"] == "Military / Intel"].copy()
+    if not filtered_full_df.empty else pd.DataFrame()
 )
-military_df = filtered_df[filtered_df["category"] == "Military"].copy() if not filtered_df.empty and "category" in filtered_df.columns else pd.DataFrame()
-navigation_df = filtered_df[filtered_df["category"] == "Navigation"].copy() if not filtered_df.empty and "category" in filtered_df.columns else pd.DataFrame()
+navigation_df = (
+    filtered_full_df[filtered_full_df["strategic_group"] == "Navigation"].copy()
+    if not filtered_full_df.empty else pd.DataFrame()
+)
 
 status_label = {
     "live": "Live",
@@ -687,28 +867,152 @@ status_color = {
 
 metric_columns = st.columns(5)
 with metric_columns[0]:
-    render_metric_card("Objects loaded", f"{len(satellites_df):,}", "Loaded from Space-Track GP records", "#38bdf8")
+    render_metric_card(
+        "Tracked strategic assets",
+        f"{len(filtered_full_df):,}",
+        "State-linked assets matching your filters",
+        "#38bdf8",
+    )
 with metric_columns[1]:
-    render_metric_card("Objects in view", f"{len(filtered_df):,}", "Visible after search and orbit filters", "#7dd3fc")
+    render_metric_card(
+        "Live map sample",
+        f"{len(filtered_df):,}",
+        "Performance-friendly visual layer",
+        "#7dd3fc",
+    )
 with metric_columns[2]:
-    render_metric_card("Military watch", f"{len(military_df):,}", "Heuristic military-tagged objects in view", "#ff5f6d")
+    render_metric_card(
+        "Countries represented",
+        f"{country_count:,}",
+        "Countries operating strategic assets",
+        "#58a6ff",
+    )
 with metric_columns[3]:
-    render_metric_card("Navigation watch", f"{len(navigation_df):,}", "Navigation constellation objects in view", "#58a6ff")
+    render_metric_card(
+        "Military-intelligence assets",
+        f"{len(military_intel_df):,}",
+        "Military / Intel subset in current view",
+        "#ff5f6d",
+    )
 with metric_columns[4]:
     render_metric_card("Feed status", status_label, status_detail, status_color)
 
-st.caption(f"Debug — source: {data_source}, rows loaded: {len(satellites_df)}")
+st.markdown(
+    f"""
+    <div class="chip-row">
+        <span class="chip">Source: Space-Track GP JSON</span>
+        <span class="chip">Strategic groups: {group_count:,}</span>
+        <span class="chip">Navigation assets: {len(navigation_df):,}</span>
+        <span class="chip">Refresh: {"Hourly" if auto_refresh_hourly else "Manual only"}</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown("")
-map_col, side_col = st.columns([3.1, 1.15], gap="large")
+
+takeaways = build_takeaways(filtered_full_df)
+st.markdown(
+    """
+    <div class="panel-card">
+        <div class="panel-title">Today's Key Takeaways</div>
+        <div class="panel-copy">
+            Plain-English interpretation of the current filtered orbital picture.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.markdown("<ul class='takeaway-list'>" + "".join([f"<li>{html.escape(x)}</li>" for x in takeaways]) + "</ul>", unsafe_allow_html=True)
+
+st.markdown("")
+
+insight_cols = st.columns(3)
+with insight_cols[0]:
+    render_insight_card(
+        "Largest footprint",
+        top_country_label(filtered_full_df),
+        "Country with the largest strategic orbital footprint in the current filtered set.",
+    )
+with insight_cols[1]:
+    render_insight_card(
+        "Dominant strategic layer",
+        top_group_label(filtered_full_df),
+        "Most common strategic group in the current picture.",
+    )
+with insight_cols[2]:
+    render_insight_card(
+        "Main orbital regime",
+        top_orbit_label(filtered_full_df),
+        "Most common orbit across tracked strategic assets in this view.",
+    )
+
+st.markdown("")
+
+chart_left, chart_right = st.columns(2, gap="large")
+
+with chart_left:
+    st.markdown(
+        """
+        <div class="panel-card">
+            <div class="panel-title">Top Countries</div>
+            <div class="panel-copy">
+                Strategic asset counts by country for the current filtered set.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if filtered_full_df.empty:
+        st.info("No country comparison is available for the current filters.")
+    else:
+        country_chart_df = (
+            filtered_full_df.groupby("country")
+            .size()
+            .reset_index(name="count")
+            .sort_values("count", ascending=False)
+            .head(10)
+            .rename(columns={"country": "Country", "count": "Assets"})
+            .set_index("Country")
+        )
+        st.bar_chart(country_chart_df)
+
+with chart_right:
+    st.markdown(
+        """
+        <div class="panel-card">
+            <div class="panel-title">Strategic Group Mix</div>
+            <div class="panel-copy">
+                Which strategic layers dominate the current filtered orbital picture.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if filtered_full_df.empty:
+        st.info("No strategic-group mix is available for the current filters.")
+    else:
+        group_chart_df = (
+            filtered_full_df.groupby("strategic_group")
+            .size()
+            .reset_index(name="count")
+            .sort_values("count", ascending=False)
+            .rename(columns={"strategic_group": "Group", "count": "Assets"})
+            .set_index("Group")
+        )
+        st.bar_chart(group_chart_df)
+
+st.markdown("")
+
+map_col, side_col = st.columns([3.15, 1.1], gap="large")
 
 with map_col:
     st.markdown(
         """
         <div class="panel-card">
-            <div class="panel-title">Orbital Radar Map</div>
+            <div class="panel-title">Orbital Distribution Map</div>
             <div class="panel-copy">
-                The map plots current satellite subpoints computed from Space-Track GP data.
+                A live spatial sample of the current strategic orbital picture. This map supports the analysis above rather than replacing it.
             </div>
         </div>
         """,
@@ -716,32 +1020,40 @@ with map_col:
     )
 
     if filtered_df.empty:
-        if satellites_df.empty:
-            st.error("No satellite positions could be computed from the current Space-Track response.")
+        if full_satellites_df.empty:
+            st.error("No strategic satellite positions could be computed from the current Space-Track response.")
             if data_error:
                 st.code(str(data_error))
         else:
-            st.info("No satellites match the current search and orbit filters.")
+            st.info("No strategic assets match the current search and orbit filters.")
     else:
         orbital_map, labels_used = create_map(filtered_df, map_theme, show_labels)
         if orbital_map is None:
-            st.info("No satellite positions are available for the current view.")
+            st.info("No orbital positions are available for the current sampled strategic view.")
         else:
-            st_folium(orbital_map, use_container_width=True, height=720)
+            st_folium(
+                orbital_map,
+                use_container_width=True,
+                height=680,
+                returned_objects=[],
+                key="strategic_space_radar_map",
+            )
             if show_labels and not labels_used:
-                st.caption("Satellite labels were reduced automatically because too many objects are visible.")
+                st.caption("Labels were reduced automatically because too many strategic assets are visible.")
 
 with side_col:
     st.markdown("#### Orbital brief")
     st.markdown(
         f"""
         <div class="panel-card">
-            <div class="panel-title">Current radar scope</div>
+            <div class="panel-title">Current watch scope</div>
             <div class="panel-copy">
                 {html.escape(status_label)}<br>
                 Loaded at: {html.escape(status_detail)}<br>
-                Categories: {html.escape(", ".join(selected_categories))}<br>
-                Source: Space-Track GP JSON
+                Full matched set: {len(filtered_full_df):,}<br>
+                Live map sample: {len(filtered_df):,}<br>
+                Countries: {country_count:,}<br>
+                Strategic groups: {group_count:,}
             </div>
         </div>
         """,
@@ -752,9 +1064,9 @@ with side_col:
     st.markdown(
         """
         <div class="panel-card">
-            <div class="panel-title">How to read this radar</div>
+            <div class="panel-title">How this page classifies assets</div>
             <div class="panel-copy">
-                Positions are propagated from current GP orbital elements. Category labels are heuristic groupings based on satellite names and public metadata.
+                This page does not rely on a direct military flag from the API. It uses public naming patterns such as NROL, USA, SBIRS, AEHF, MUOS, MILSTAR, KH-, YAOGAN, COSMOS, GLONASS, GPS, BeiDou, Galileo, IRNSS, NAVIC, and QZSS to identify state-linked or strategically relevant orbital assets.
             </div>
         </div>
         """,
@@ -768,35 +1080,47 @@ with side_col:
         st.error("No live Space-Track data could be loaded, and no cached real dataset exists yet.")
         st.code(str(data_error))
 
-tab_priority, tab_summary, tab_feed = st.tabs(["Priority Watch", "Category Summary", "Tracked Objects"])
+st.markdown("")
 
-with tab_priority:
-    st.markdown("### Priority Orbital Watch")
-    st.caption("This view prioritises crewed platforms, military watch objects, navigation satellites, and other high-interest public assets.")
-    if priority_df.empty:
-        st.info("No satellites are visible under the active filters.")
-    else:
-        st.dataframe(priority_table(priority_df), use_container_width=True, hide_index=True)
+st.markdown(
+    """
+    <div class="panel-card">
+        <div class="panel-title">Country Summary</div>
+        <div class="panel-copy">
+            Simplified country leaderboard showing footprint, dominant strategic layer, and main orbital regime.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-with tab_summary:
-    st.markdown("### Category Summary")
-    st.caption("A quick breakdown of how the current orbital picture is distributed across the selected categories.")
-    if filtered_df.empty:
-        st.info("No category summary is available for the current filters.")
-    else:
-        st.dataframe(summary_table(filtered_df), use_container_width=True, hide_index=True)
+if filtered_full_df.empty:
+    st.info("No strategic country summary is available for the current filters.")
+else:
+    st.dataframe(strategic_country_summary_table(filtered_full_df), use_container_width=True, hide_index=True)
 
-with tab_feed:
-    st.markdown("### Tracked Satellite Feed")
-    st.caption("This table follows the current search and orbit filters so you can inspect exactly what the radar map is showing.")
-    if filtered_df.empty:
-        st.info("No satellites match the current filters.")
-    else:
-        st.dataframe(feed_table(filtered_df.sort_values(["priority_rank", "name"])), use_container_width=True, hide_index=True)
+st.markdown("")
+
+st.markdown(
+    """
+    <div class="panel-card">
+        <div class="panel-title">Strategic Asset Register</div>
+        <div class="panel-copy">
+            Detailed reference table for validation and deeper inspection. Kept lower on the page so the high-level story stays clear first.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if filtered_full_df.empty:
+    st.info("No strategic assets match the current filters.")
+else:
+    display_df = filtered_full_df.sort_values(["country", "strategic_group", "name"]).head(250).copy()
+    st.dataframe(strategic_feed_table(display_df), use_container_width=True, hide_index=True)
 
 st.markdown("---")
 st.caption(
-    f"Loaded {len(satellites_df):,} propagated satellite records from {status_label.lower()}, "
-    f"with {len(filtered_df):,} objects visible after filtering and "
-    f"{len(priority_df):,} entries highlighted in the priority watch."
+    f"The current strategic matched set contains {len(filtered_full_df):,} propagated assets from {status_label.lower()}, "
+    f"while {len(filtered_df):,} are shown in the live map sample for performance."
 )
