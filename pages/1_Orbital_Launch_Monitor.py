@@ -1754,6 +1754,15 @@ with tab_failed:
     else:
         st.dataframe(display_launch_table(filtered_failed_df), use_container_width=True, hide_index=True)
 
+with tab_sensitive:
+    st.markdown("### Publicly Signaled Sensitive Launches")
+    st.caption("This table uses public naming, mission labels, launch metadata, and broader dual-use indicators to flag launches that look government, military, intelligence, navigation, surveillance, or protected-communications linked.")
+    if recent_launch_error:
+        st.warning("Sensitive launch detection depends on the recent-launch feed, which is temporarily unavailable.")
+    elif filtered_sensitive_df.empty:
+        st.info("No publicly signaled sensitive launches match the current filters.")
+    else:
+        st.dataframe(display_launch_table(filtered_sensitive_df), use_container_width=True, hide_index=True)
 
 with tab_context:
     st.markdown("### Official Mission Context")
