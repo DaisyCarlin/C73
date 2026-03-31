@@ -1,15 +1,25 @@
 import streamlit as st
-from utils.ui import hide_main_page
 
 st.set_page_config(
     page_title="Home",
     page_icon="◉",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-hide_main_page()
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebarNav"] > ul > li:first-child {
+            display: none;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.title("C7 Console")
+st.caption("Global orbital and strategic intelligence platform.")
 
 import time
 from datetime import datetime, timezone
