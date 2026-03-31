@@ -125,8 +125,7 @@ def inject_styles() -> None:
             }
 
             .hero-copy,
-            .panel-copy,
-            .signal-copy {
+            .panel-copy {
                 color: var(--text-soft);
                 font-size: 0.95rem;
                 margin: 0.55rem 0 0 0;
@@ -147,19 +146,20 @@ def inject_styles() -> None:
 
             .signal-card {
                 padding: 1rem 1rem 0.95rem 1rem;
-                min-height: 150px;
+                min-height: 148px;
+                margin-bottom: 0.8rem;
             }
 
             .signal-title {
                 color: var(--text-main);
                 font-size: 1rem;
                 font-weight: 700;
-                margin-bottom: 0.4rem;
+                margin-bottom: 0.45rem;
             }
 
             .signal-main {
                 color: var(--text-main);
-                font-size: 1.05rem;
+                font-size: 1.02rem;
                 font-weight: 700;
                 line-height: 1.45;
                 margin-bottom: 0.45rem;
@@ -179,17 +179,29 @@ def inject_styles() -> None:
                 box-shadow: 0 12px 28px rgba(4, 9, 18, 0.2);
             }
 
-            .stDataFrame, div[data-testid="stTable"] {
-                border-radius: 18px;
-                overflow: hidden;
-                border: 1px solid var(--stroke);
-            }
-
             .small-note {
                 color: var(--text-soft);
                 font-size: 0.88rem;
                 line-height: 1.5;
                 margin-top: 0.2rem;
+            }
+
+            .chip-row {
+                display:flex;
+                flex-wrap:wrap;
+                gap:.45rem;
+                margin-top:.55rem;
+            }
+
+            .chip {
+                display:inline-block;
+                padding:.28rem .6rem;
+                border-radius:999px;
+                font-size:.76rem;
+                font-weight:700;
+                color:#dff4ff;
+                background:rgba(56,189,248,.14);
+                border:1px solid rgba(56,189,248,.24);
             }
         </style>
         """,
@@ -334,12 +346,9 @@ def country_label(code: str) -> str:
         "UK": "U.K.",
         "GB": "U.K.",
         "FR": "France",
+        "ITSO": "ITSO",
     }
     return mapping.get(code, code if code else "Unknown")
-
-
-def maybe_prefix_suggestion(text: str) -> str:
-    return text if text.endswith(".") else f"{text}."
 
 
 def render_signal_card(title: str, main_text: str, why_text: str) -> None:
@@ -356,7 +365,7 @@ def render_signal_card(title: str, main_text: str, why_text: str) -> None:
 
 
 # ----------------------------
-# LIVE LAUNCH EVENTS
+# LIVE DATA
 # ----------------------------
 
 def build_launch_events(raw_results) -> pd.DataFrame:
@@ -404,10 +413,6 @@ def get_recent_launch_events() -> pd.DataFrame:
         df = df.sort_values("timestamp", ascending=False)
     return df
 
-
-# ----------------------------
-# LIVE SATELLITE FOOTPRINT
-# ----------------------------
 
 @st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
 def get_live_satellite_events(identity: str, password: str) -> pd.DataFrame:
@@ -467,7 +472,7 @@ def filter_events(df: pd.DataFrame, sensitive_only: bool) -> pd.DataFrame:
 
 
 # ----------------------------
-# LAUNCH ANALYTICS
+# ANALYTICS
 # ----------------------------
 
 def calculate_launch_country_summary(events_df: pd.DataFrame, now_utc: pd.Timestamp) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -576,7 +581,9 @@ def build_main_headline(
             if int(row["sensitive_count"]) > 0:
                 return (
                     f"{country_label(row['country'])} saw the sharpest rise in launches this month, "
-                    f"suggesting a stronger state-linked mission tempo."
+                    f"while {country_label(satellite_summary_df.iloc[0]['country'])} still holds the biggest visible orbital footprint."
+                    if show_satellites and not satellite_summary_df.empty
+                    else f"{country_label(row['country'])} saw the sharpest rise in launches this month, suggesting a stronger state-linked launch tempo."
                 )
 
     if show_satellites and not satellite_summary_df.empty:
@@ -586,10 +593,10 @@ def build_main_headline(
             f"indicating the broadest orbital presence in the current view."
         )
 
-    return "No strong signal stands out yet in the current filters."
+    return "No strong combined signal stands out yet in the current filters."
 
 
-def build_signal_cards(
+def build_combined_signal_cards(
     show_launches: bool,
     show_satellites: bool,
     launch_summary_df: pd.DataFrame,
@@ -598,97 +605,112 @@ def build_signal_cards(
 ) -> list[dict]:
     cards: list[dict] = []
 
+    launch_leader = None
+    launch_riser = None
+    sensitive_launch_leader = None
+    sat_leader = None
+    sat_sensitive_leader = None
+
     if show_launches and not launch_summary_df.empty and int(launch_summary_df["current_count"].sum()) > 0:
         current_positive = launch_summary_df[launch_summary_df["current_count"] > 0].copy()
-
-        most_active = current_positive.sort_values(["current_count", "country"], ascending=[False, True]).iloc[0]
-        cards.append(
-            {
-                "title": "Launch leader",
-                "main": f"{country_label(most_active['country'])} had the most launches this month.",
-                "why": f"This can be linked to stronger short-term launch tempo, driven mainly by {most_active['top_subcategory'].lower()} missions.",
-            }
-        )
+        if not current_positive.empty:
+            launch_leader = current_positive.sort_values(["current_count", "country"], ascending=[False, True]).iloc[0]
 
         biggest_increase_df = launch_summary_df[launch_summary_df["absolute_change"] > 0].sort_values(
             ["absolute_change", "pct_change", "current_count", "country"],
             ascending=[False, False, False, True],
         )
         if not biggest_increase_df.empty:
-            biggest_increase = biggest_increase_df.iloc[0]
-            cards.append(
-                {
-                    "title": "Fastest launch rise",
-                    "main": (
-                        f"{country_label(biggest_increase['country'])} added "
-                        f"{int(biggest_increase['absolute_change'])} more launches month-on-month."
-                    ),
-                    "why": (
-                        f"This may suggest a higher launch tempo, and can be linked to "
-                        f"{biggest_increase['top_subcategory'].lower()} activity."
-                    ),
-                }
-            )
+            launch_riser = biggest_increase_df.iloc[0]
 
         sensitive_df = current_positive[current_positive["sensitive_count"] > 0].sort_values(
             ["sensitive_share", "sensitive_count", "country"],
             ascending=[False, False, True],
         )
         if not sensitive_df.empty:
-            sensitive_leader = sensitive_df.iloc[0]
-            cards.append(
-                {
-                    "title": "Sensitive launch signal",
-                    "main": (
-                        f"{country_label(sensitive_leader['country'])} has the strongest sensitive-launch picture "
-                        f"in the current launch view."
-                    ),
-                    "why": (
-                        f"{sensitive_leader['sensitive_share']:.0f}% of its launches were flagged sensitive, "
-                        f"suggesting more state-linked or military-adjacent activity."
-                    ),
-                }
-            )
+            sensitive_launch_leader = sensitive_df.iloc[0]
 
     if show_satellites and not satellite_summary_df.empty and int(satellite_summary_df["current_count"].sum()) > 0:
         sat_leader = satellite_summary_df.iloc[0]
-        cards.append(
-            {
-                "title": "Largest orbital footprint",
-                "main": f"{country_label(sat_leader['country'])} has the biggest tracked satellite footprint.",
-                "why": (
-                    f"This can be linked to broad orbital presence, led mainly by "
-                    f"{safe_text(sat_leader['top_subcategory']).lower()} systems."
-                ),
-            }
-        )
-
-        if len(satellite_summary_df) > 1:
-            second = satellite_summary_df.iloc[1]
-            cards.append(
-                {
-                    "title": "Second-largest footprint",
-                    "main": f"{country_label(second['country'])} is the next-largest footprint in the current view.",
-                    "why": "This suggests the wider orbital picture is concentrated among a small number of major state or state-linked actors.",
-                }
-            )
-
         sensitive_sat_df = satellite_summary_df[satellite_summary_df["sensitive_count"] > 0].sort_values(
             ["sensitive_share", "sensitive_count", "country"],
             ascending=[False, False, True],
         )
         if not sensitive_sat_df.empty:
-            sat_sensitive = sensitive_sat_df.iloc[0]
-            cards.append(
-                {
-                    "title": "Sensitive satellite concentration",
-                    "main": f"{country_label(sat_sensitive['country'])} has the highest sensitive-share in the current footprint.",
-                    "why": (
-                        f"{sat_sensitive['sensitive_share']:.0f}% of its tracked satellites were marked sensitive, "
-                        f"suggesting a more strategic or military-linked orbital layer."
-                    ),
-                }
-            )
+            sat_sensitive_leader = sensitive_sat_df.iloc[0]
+
+    if launch_riser is not None:
+        cards.append(
+            {
+                "title": "Launch tempo",
+                "main": (
+                    f"{country_label(launch_riser['country'])} rose fastest this month, up "
+                    f"{int(launch_riser['absolute_change'])} launches."
+                ),
+                "why": (
+                    f"This may suggest a stronger short-term mission tempo and can be linked to "
+                    f"{safe_text(launch_riser['top_subcategory']).lower()} activity."
+                ),
+            }
+        )
+
+    if sat_leader is not None:
+        cards.append(
+            {
+                "title": "Orbital scale",
+                "main": f"{country_label(sat_leader['country'])} still has the largest visible satellite footprint.",
+                "why": (
+                    f"This can be linked to broader long-term orbital presence, led mainly by "
+                    f"{safe_text(sat_leader['top_subcategory']).lower()} systems."
+                ),
+            }
+        )
+
+    if sensitive_launch_leader is not None:
+        cards.append(
+            {
+                "title": "Sensitive launch signal",
+                "main": f"{country_label(sensitive_launch_leader['country'])} stands out most clearly in sensitive launches.",
+                "why": (
+                    f"{sensitive_launch_leader['sensitive_share']:.0f}% of its current-month launches were flagged sensitive, "
+                    f"suggesting more state-linked activity."
+                ),
+            }
+        )
+
+    if sat_sensitive_leader is not None:
+        cards.append(
+            {
+                "title": "Sensitive orbital layer",
+                "main": f"{country_label(sat_sensitive_leader['country'])} has the highest sensitive-share in the current footprint.",
+                "why": (
+                    f"This may point to a more strategic or military-linked orbital layer rather than a mainly routine one."
+                ),
+            }
+        )
+
+    if launch_riser is not None and sat_leader is not None:
+        cards.append(
+            {
+                "title": "Combined read",
+                "main": (
+                    f"{country_label(launch_riser['country'])} is moving fastest in launches, "
+                    f"while {country_label(sat_leader['country'])} still leads in orbital scale."
+                ),
+                "why": (
+                    "That suggests short-term launch movement and long-term orbital presence are not being led by the same actor."
+                ),
+            }
+        )
+
+    if launch_leader is not None and sat_leader is not None and country_label(launch_leader["country"]) == country_label(sat_leader["country"]):
+        cards.append(
+            {
+                "title": "Same leader across both layers",
+                "main": f"{country_label(launch_leader['country'])} leads both launches and orbital footprint in the current view.",
+                "why": "That can be linked to strength in both short-term launch tempo and wider orbital scale.",
+            }
+        )
 
     return cards[:5]
 
@@ -706,55 +728,29 @@ def build_changes_bullets(
     if show_launches:
         launch_current_total = int(current_launch_df.shape[0]) if not current_launch_df.empty else 0
         launch_previous_total = int(previous_launch_df.shape[0]) if not previous_launch_df.empty else 0
-        bullets.append(f"Launches this month: {launch_current_total:,} ({launch_current_total - launch_previous_total:+,} vs previous month).")
+        bullets.append(f"Launches this month: {launch_current_total:,} ({launch_current_total - launch_previous_total:+,} vs previous month)")
 
         if not launch_summary_df.empty and int(launch_summary_df["current_count"].sum()) > 0:
-            top_country = launch_summary_df.iloc[0]
-            bullets.append(f"Current launch leader: {country_label(top_country['country'])}.")
             biggest_increase_df = launch_summary_df[launch_summary_df["absolute_change"] > 0].sort_values(
                 ["absolute_change", "pct_change", "current_count", "country"],
                 ascending=[False, False, False, True],
             )
             if not biggest_increase_df.empty:
                 mover = biggest_increase_df.iloc[0]
-                bullets.append(
-                    f"Biggest rise: {country_label(mover['country'])} (+{int(mover['absolute_change'])} launches)."
-                )
+                bullets.append(f"Fastest launch rise: {country_label(mover['country'])} (+{int(mover['absolute_change'])})")
 
         sensitive_launches = int(current_launch_df["sensitive"].sum()) if not current_launch_df.empty else 0
-        bullets.append(f"Sensitive launches this month: {sensitive_launches:,}.")
+        bullets.append(f"Sensitive launches this month: {sensitive_launches:,}")
 
     if show_satellites:
         satellite_total = int(satellite_summary_df["current_count"].sum()) if not satellite_summary_df.empty else 0
-        bullets.append(f"Tracked satellites in current view: {satellite_total:,}.")
+        bullets.append(f"Tracked satellites in current view: {satellite_total:,}")
 
         if not satellite_summary_df.empty:
             sat_leader = satellite_summary_df.iloc[0]
-            bullets.append(f"Satellite footprint leader: {country_label(sat_leader['country'])}.")
-            sensitive_satellites = int(satellite_summary_df["sensitive_count"].sum())
-            bullets.append(f"Sensitive satellites in current view: {sensitive_satellites:,}.")
+            bullets.append(f"Largest orbital footprint: {country_label(sat_leader['country'])}")
 
     return bullets[:5]
-
-
-def format_top_launch_chart_df(launch_summary_df: pd.DataFrame) -> pd.DataFrame:
-    if launch_summary_df.empty or int(launch_summary_df["current_count"].sum()) == 0:
-        return pd.DataFrame()
-
-    chart_df = launch_summary_df[launch_summary_df["current_count"] > 0][["country", "current_count"]].head(6).copy()
-    chart_df["Country"] = chart_df["country"].map(country_label)
-    chart_df["Launches"] = chart_df["current_count"]
-    return chart_df[["Country", "Launches"]].set_index("Country")
-
-
-def format_top_satellite_chart_df(satellite_summary_df: pd.DataFrame) -> pd.DataFrame:
-    if satellite_summary_df.empty:
-        return pd.DataFrame()
-
-    chart_df = satellite_summary_df[["country", "current_count"]].head(6).copy()
-    chart_df["Country"] = chart_df["country"].map(country_label)
-    chart_df["Tracked Footprint"] = chart_df["current_count"]
-    return chart_df[["Country", "Tracked Footprint"]].set_index("Country")
 
 
 # ----------------------------
@@ -769,7 +765,7 @@ st.markdown(
         <div class="hero-kicker">COUNTRY-LEVEL ANALYST VIEW</div>
         <h1 class="hero-title">Strategic Insights</h1>
         <p class="hero-copy">
-            A simpler read of launch activity and satellite footprint, focused on what changed, who matters, and what that may suggest.
+            A merged read of rocket activity and satellite footprint, focused on what changed, who stands out, and what that may suggest.
         </p>
     </div>
     """,
@@ -894,7 +890,18 @@ with top_metrics[3]:
         f"{sensitive_satellites:,}" if show_satellites else "—",
     )
 
-signal_cards = build_signal_cards(
+st.markdown(
+    f"""
+    <div class="chip-row">
+        <span class="chip">Launch window: {current_month_start.strftime('%d %b %Y')} to {next_month_start.strftime('%d %b %Y')} UTC</span>
+        <span class="chip">Sensitive only: {"On" if sensitive_only else "Off"}</span>
+        <span class="chip">View: {" + ".join(selected_event_types)}</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+signal_cards = build_combined_signal_cards(
     show_launches=show_launches,
     show_satellites=show_satellites,
     launch_summary_df=launch_summary_df,
@@ -908,16 +915,16 @@ if signal_cards:
         <div class="panel-card">
             <div class="panel-title">Key signals</div>
             <div class="panel-copy">
-                Short takeaways from the current view.
+                Combined takeaways from rocket movement and orbital footprint.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    cols = st.columns(len(signal_cards)) if len(signal_cards) <= 3 else st.columns(3)
+    cols = st.columns(2, gap="large")
     for i, card in enumerate(signal_cards):
-        with cols[i % len(cols)]:
+        with cols[i % 2]:
             render_signal_card(card["title"], card["main"], card["why"])
 
 changes = build_changes_bullets(
@@ -935,51 +942,11 @@ if changes:
         <div class="panel-card">
             <div class="panel-title">What changed</div>
             <div class="panel-copy">
-                The clearest changes in the current view.
+                The clearest current changes from the combined view.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
     for bullet in changes:
-        st.markdown(f"- {maybe_prefix_suggestion(bullet)}")
-
-chart_left, chart_right = st.columns(2, gap="large")
-
-with chart_left:
-    st.markdown(
-        """
-        <div class="panel-card">
-            <div class="panel-title">Launch picture</div>
-            <div class="panel-copy">
-                Current-month launches by country.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    launch_chart_df = format_top_launch_chart_df(launch_summary_df) if show_launches else pd.DataFrame()
-    if launch_chart_df.empty:
-        st.info("No launch chart available under the current filters.")
-    else:
-        st.bar_chart(launch_chart_df)
-
-with chart_right:
-    st.markdown(
-        """
-        <div class="panel-card">
-            <div class="panel-title">Orbital footprint</div>
-            <div class="panel-copy">
-                Largest currently tracked satellite footprints.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    sat_chart_df = format_top_satellite_chart_df(satellite_summary_df) if show_satellites else pd.DataFrame()
-    if sat_chart_df.empty:
-        st.info("No satellite chart available under the current filters.")
-    else:
-        st.bar_chart(sat_chart_df)
+        st.markdown(f"- {bullet}.")
