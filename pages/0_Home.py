@@ -37,6 +37,7 @@ PAGE_PATHS = {
 # ----------------------------
 
 LAUNCH_UPCOMING_LIMIT = 50
+HISTORICAL_LAUNCH_LIMIT = 200
 LAUNCH_REQUEST_TIMEOUT = 45
 SPACE_TRACK_REQUEST_TIMEOUT = 15
 REQUEST_RETRIES = 3
@@ -46,6 +47,12 @@ LAUNCH_API_URL = (
     f"https://ll.thespacedevs.com/2.2.0/launch/upcoming/"
     f"?limit={LAUNCH_UPCOMING_LIMIT}&mode=detailed"
 )
+
+HISTORICAL_LAUNCH_URL = (
+    f"https://ll.thespacedevs.com/2.2.0/launch/"
+    f"?limit={HISTORICAL_LAUNCH_LIMIT}&ordering=-net&mode=detailed"
+)
+
 SPACE_TRACK_LOGIN_URL = "https://www.space-track.org/ajaxauth/login"
 SPACE_TRACK_GP_URL = (
     "https://www.space-track.org/basicspacedata/query/"
@@ -92,10 +99,7 @@ st.markdown(
     :root {
         --bg-0: #07111f;
         --bg-1: #0d1b2a;
-        --panel: rgba(10, 23, 37, 0.90);
-        --panel-2: rgba(14, 31, 49, 0.88);
         --stroke: rgba(130, 161, 191, 0.20);
-        --stroke-strong: rgba(88, 166, 255, 0.34);
         --text-main: #e8f1fb;
         --text-soft: #91a9c3;
         --blue: #0ea5e9;
@@ -196,8 +200,8 @@ st.markdown(
     .hero-panel,
     .metric-card,
     .brief-card,
-    .module-card,
-    .feed-card {
+    .chart-card,
+    .module-card {
         border: 1px solid var(--stroke);
         border-radius: 22px;
         background: linear-gradient(180deg, rgba(10, 23, 37, 0.92), rgba(14, 31, 49, 0.84));
@@ -286,7 +290,7 @@ st.markdown(
     .alert { color: var(--amber); font-weight: 800; }
 
     .brief-card,
-    .feed-card {
+    .chart-card {
         padding: 1.15rem 1.1rem;
         min-height: 300px;
     }
@@ -304,7 +308,14 @@ st.markdown(
         color: var(--text-main);
         font-size: 1.12rem;
         font-weight: 780;
-        margin-bottom: .8rem;
+        margin-bottom: .55rem;
+    }
+
+    .panel-copy {
+        color: #91a9c3;
+        font-size: .92rem;
+        line-height: 1.6;
+        margin-bottom: .9rem;
     }
 
     .brief-list {
@@ -317,31 +328,6 @@ st.markdown(
         font-size: .93rem;
         line-height: 1.7;
         margin-bottom: .55rem;
-    }
-
-    .feed-line {
-        padding: .72rem 0;
-        border-bottom: 1px solid rgba(130, 161, 191, 0.12);
-    }
-
-    .feed-line:last-child {
-        border-bottom: none;
-        padding-bottom: 0;
-    }
-
-    .feed-time {
-        color: #84d7ff;
-        font-size: .78rem;
-        font-weight: 800;
-        letter-spacing: .08rem;
-        text-transform: uppercase;
-        margin-bottom: .18rem;
-    }
-
-    .feed-text {
-        color: #d8e7f5;
-        font-size: .92rem;
-        line-height: 1.55;
     }
 
     .module-card {
@@ -567,43 +553,28 @@ def fmt_change(current: int, baseline: int) -> str:
     return f'<span class="{cls}">{arrow} {abs(change):.0f}%</span> vs baseline'
 
 
-def first_valid_timestamp(df: pd.DataFrame):
-    if df.empty or "timestamp" not in df.columns:
-        return None
-    ts = df["timestamp"].dropna().sort_values()
-    return None if ts.empty else ts.iloc[0]
+def build_sensitive_launches_over_time(historical_df: pd.DataFrame) -> pd.DataFrame:
+    if historical_df.empty:
+        return pd.DataFrame(columns=["date", "count"])
 
+    df = historical_df.copy()
+    now_utc = pd.Timestamp.now(tz="UTC")
+    df = df[df["timestamp"] <= now_utc].copy()
+    df = df[df["sensitive"] == True].copy()
 
-def make_feed_lines(launch_df: pd.DataFrame, sat_df: pd.DataFrame):
-    lines = []
+    if df.empty:
+        return pd.DataFrame(columns=["date", "count"])
 
-    if not launch_df.empty:
-        upcoming = launch_df.sort_values("timestamp").head(3)
-        for _, row in upcoming.iterrows():
-            ts = row["timestamp"]
-            ts_label = ts.strftime("%H:%M UTC") if pd.notna(ts) else "Pending"
-            sensitivity = "Sensitive-linked" if bool(row["sensitive"]) else "Routine"
-            lines.append(
-                {
-                    "time": ts_label,
-                    "text": f'{sensitivity} launch queued — {safe_text(row["name"])} '
-                            f'({country_label(row["country"])}) via {safe_text(row["source"])}.'
-                }
-            )
+    df["date"] = df["timestamp"].dt.floor("D")
 
-    if not sat_df.empty:
-        sensitive_sat = sat_df[sat_df["sensitive"] == True].head(2)
-        for idx, (_, row) in enumerate(sensitive_sat.iterrows(), start=1):
-            lines.append(
-                {
-                    "time": f"Live Layer {idx}",
-                    "text": f'{country_flag(row["country"])} {country_label(row["country"])} '
-                            f'{safe_text(row["subcategory"]).lower()} asset visible in the current strategic footprint — '
-                            f'{safe_text(row["name"])}.'
-                }
-            )
+    series_df = (
+        df.groupby("date")
+        .size()
+        .reset_index(name="count")
+        .sort_values("date")
+    )
 
-    return lines[:5]
+    return series_df
 
 
 # ----------------------------
@@ -640,6 +611,45 @@ def get_upcoming_launches_df() -> pd.DataFrame:
         )
 
     return pd.DataFrame(rows)
+
+
+@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
+def get_historical_launches_df() -> pd.DataFrame:
+    raw = fetch_json_with_retry(HISTORICAL_LAUNCH_URL, timeout=LAUNCH_REQUEST_TIMEOUT)
+    results = raw.get("results", [])
+    rows = []
+
+    for item in results:
+        mission = item.get("mission") or {}
+        provider = item.get("launch_service_provider") or {}
+        pad = item.get("pad") or {}
+        location = pad.get("location") or {}
+        status_obj = item.get("status") or {}
+
+        name = safe_text(item.get("name")) or "Unknown launch"
+        subcategory = safe_text(mission.get("type")) or "orbital_launch"
+        source = safe_text(provider.get("name")) or "Unknown"
+        country = safe_text(location.get("country_code")) or "Unknown"
+        net = item.get("net")
+        status_name = safe_text(status_obj.get("name"))
+
+        rows.append(
+            {
+                "name": name,
+                "subcategory": subcategory,
+                "source": source,
+                "country": country,
+                "timestamp": pd.to_datetime(net, utc=True, errors="coerce"),
+                "status": status_name,
+                "sensitive": looks_sensitive_launch(name, subcategory, source),
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df
+
+    return df.dropna(subset=["timestamp"]).copy()
 
 
 @st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
@@ -701,7 +711,7 @@ def build_metrics(launch_df: pd.DataFrame, sat_df: pd.DataFrame):
     if not launch_df.empty:
         failure_tokens = ("failure", "failed", "scrub", "anomaly")
         failure_count = int(
-            launch_df["name"].str.lower().fillna("").apply(
+            launch_df["name"].astype(str).str.lower().fillna("").apply(
                 lambda x: any(token in x for token in failure_tokens)
             ).sum()
         )
@@ -727,8 +737,8 @@ def build_metrics(launch_df: pd.DataFrame, sat_df: pd.DataFrame):
             "label": "Launch Failure Rate",
             "value": f"{failure_rate:.1f}%",
             "sub": '<span class="down">Low friction</span> in current watch window'
-                   if failure_rate <= 5
-                   else '<span class="alert">Elevated risk</span> in current watch window',
+            if failure_rate <= 5
+            else '<span class="alert">Elevated risk</span> in current watch window',
         },
     ]
 
@@ -776,11 +786,12 @@ def build_brief_lines(launch_df: pd.DataFrame, sat_df: pd.DataFrame):
     if launch_df.empty and sat_df.empty:
         lines.append("No strong live intelligence brief is available right now because both feeds are currently unavailable.")
 
+    filler = [
+        "Combined launch cadence and orbital presence suggest the strategic layer remains driven by persistent state-linked infrastructure.",
+        "Homepage signals are designed to surface the most decision-relevant orbital developments before deeper page-level analysis.",
+    ]
+
     while len(lines) < 4:
-        filler = [
-            "Combined launch cadence and orbital presence suggest the strategic layer remains driven by persistent state-linked infrastructure.",
-            "Homepage signals are designed to surface the most decision-relevant orbital developments before deeper page-level analysis.",
-        ]
         for item in filler:
             if len(lines) < 4 and item not in lines:
                 lines.append(item)
@@ -818,7 +829,7 @@ st.markdown(
     """
     <div class="hero-panel">
         <div class="hero-copy">
-            Bloomberg-style command view for orbital activity, satellite operations, and strategic space signals.
+            Terminal-style command view for orbital activity, satellite operations, and platform-flagged strategic space signals.
             This homepage is designed to surface the strongest live read first, then route the user into the
             right intelligence module for deeper analysis.
         </div>
@@ -842,6 +853,7 @@ if not identity or not password:
 try:
     with st.spinner("Loading live homepage signals..."):
         launch_df = get_upcoming_launches_df()
+        historical_launch_df = get_historical_launches_df()
         sat_df = get_live_satellite_df(identity, password)
 except Exception as error:
     st.error(f"Could not load live homepage data: {error}")
@@ -849,12 +861,12 @@ except Exception as error:
 
 metrics = build_metrics(launch_df, sat_df)
 brief_lines = build_brief_lines(launch_df, sat_df)
-feed_lines = make_feed_lines(launch_df, sat_df)
+sensitive_series_df = build_sensitive_launches_over_time(historical_launch_df)
 
 st.markdown(
     """
     <div class="section-wrap">
-        <div class="section-title">Executive Snapshot</div>
+        <div class="section-title">Terminal Snapshot</div>
         <div class="section-copy">
             Key indicators from the current launch queue and live orbital footprint.
         </div>
@@ -877,7 +889,7 @@ for col, metric in zip(metric_cols, metrics):
             unsafe_allow_html=True,
         )
 
-brief_col, feed_col = st.columns([1.25, 1], gap="large")
+brief_col, chart_col = st.columns([1.15, 1], gap="large")
 
 with brief_col:
     st.markdown(
@@ -906,44 +918,44 @@ with brief_col:
         unsafe_allow_html=True,
     )
 
-with feed_col:
+with chart_col:
     st.markdown(
         """
         <div class="section-wrap">
-            <div class="section-title">Live Activity Feed</div>
+            <div class="section-title">Sensitive Launches Over Time</div>
             <div class="section-copy">
-                Rolling activity designed to make the platform feel active, time-sensitive, and operational.
+                Historical Bloomberg-style view of platform-flagged sensitive launches.
             </div>
         </div>
         """,
         unsafe_allow_html=True,
-    )
-
-    if not feed_lines:
-        feed_lines = [{"time": "Standby", "text": "No live activity lines are available right now."}]
-
-    feed_html = "".join(
-        [
-            f"""
-            <div class="feed-line">
-                <div class="feed-time">{item['time']}</div>
-                <div class="feed-text">{item['text']}</div>
-            </div>
-            """
-            for item in feed_lines
-        ]
     )
 
     st.markdown(
-        f"""
-        <div class="feed-card">
-            <div class="panel-kicker">Operational Feed</div>
-            <div class="panel-title">Most recent visible activity</div>
-            {feed_html}
-        </div>
+        """
+        <div class="chart-card">
+            <div class="panel-kicker">Historical Launch Trend</div>
+            <div class="panel-title">Platform-flagged sensitive launches</div>
+            <div class="panel-copy">
+                Built from historical launch records and the platform’s sensitivity logic.
+            </div>
         """,
         unsafe_allow_html=True,
     )
+
+    if sensitive_series_df.empty:
+        st.info("No historical sensitive launches were visible in the current data window.")
+    else:
+        chart_df = sensitive_series_df.copy()
+        chart_df["date"] = pd.to_datetime(chart_df["date"])
+
+        st.line_chart(
+            chart_df.set_index("date")["count"],
+            height=280,
+            use_container_width=True,
+        )
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown(
     """
