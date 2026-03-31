@@ -20,9 +20,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Your page content below
-st.title("Orbital Launch Monitor")
-st.caption("Monitor global launch activity and strategic signals.")
+
+
 
 import html
 import re
