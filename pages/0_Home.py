@@ -1,3 +1,15 @@
+import streamlit as st
+from utils.ui import hide_main_page
+
+st.set_page_config(
+    page_title="Home",
+    page_icon="◉",
+    layout="wide",
+)
+
+hide_main_page()
+
+st.title("C7 Console")
 
 import time
 from datetime import datetime, timezone
