@@ -1,3 +1,29 @@
+# pages/1_Orbital_Launch_Monitor.py
+
+import streamlit as st
+
+st.set_page_config(
+    page_title="Orbital Launch Monitor",
+    page_icon="◉",
+    layout="wide",
+)
+
+# Hide the main "app" page from sidebar
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebarNav"] > ul > li:first-child {
+            display: none;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Your page content below
+st.title("Orbital Launch Monitor")
+st.caption("Monitor global launch activity and strategic signals.")
+
 import html
 import re
 import time
