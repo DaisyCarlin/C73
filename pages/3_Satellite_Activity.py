@@ -374,7 +374,7 @@ def render_top_country_card(flag, country, value, share, top_group, top_orbit):
         f"""
         <div class="country-card">
             <div class="country-flag">{html.escape(flag)}</div>
-            <div class="country-name">{html.escape(country)}</div>
+            <div class="country-name">{html.escape(strategic_country_display(country))}</div>
             <div class="country-value">{value:,}</div>
             <div class="country-copy">Tracked strategic assets in the current filtered picture.</div>
             <div class="country-meta">
@@ -436,6 +436,122 @@ def country_code_to_flag(code: str) -> str:
         }
         return fallback.get(code, "🌐")
     return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
+
+
+def display_country_label(code: str) -> str:
+    code = safe_str(code).upper()
+
+    mapping = {
+        "US": "United States",
+        "RU": "Russia",
+        "CN": "China",
+        "IN": "India",
+        "JP": "Japan",
+        "FR": "France",
+        "GB": "United Kingdom",
+    }
+
+    return mapping.get(code, code if code else "Unknown")
+
+
+def strategic_country_display(code: str) -> str:
+    code = safe_str(code).upper()
+
+    mapping = {
+        "US": "United States",
+        "RU": "Russia",
+        "CN": "China",
+        "JP": "Japan",
+        "IN": "India",
+        "FR": "France",
+        "GB": "United Kingdom",
+        "KZ": "Kazakhstan",
+    }
+
+    if code == "CIS":
+        return "CIS / Russia-led systems"
+
+    return mapping.get(code, code if code else "Unknown")
+
+
+def top_country_stats(df: pd.DataFrame) -> dict:
+    if df.empty:
+        return {
+            "country_code": "None",
+            "country_label": "None",
+            "count": 0,
+            "share": 0.0,
+        }
+
+    counts = df.groupby("country").size().sort_values(ascending=False)
+    code = str(counts.index[0])
+    count = int(counts.iloc[0])
+    total = max(int(counts.sum()), 1)
+    share = count / total * 100.0
+
+    return {
+        "country_code": code,
+        "country_label": strategic_country_display(code),
+        "count": count,
+        "share": share,
+    }
+
+
+def top_group_stats(df: pd.DataFrame) -> dict:
+    if df.empty:
+        return {
+            "group": "None",
+            "count": 0,
+            "share": 0.0,
+        }
+
+    counts = df.groupby("strategic_group").size().sort_values(ascending=False)
+    group = str(counts.index[0])
+    count = int(counts.iloc[0])
+    total = max(int(counts.sum()), 1)
+    share = count / total * 100.0
+
+    return {
+        "group": group,
+        "count": count,
+        "share": share,
+    }
+
+
+def top_orbit_stats(df: pd.DataFrame) -> dict:
+    if df.empty:
+        return {
+            "orbit": "None",
+            "count": 0,
+            "share": 0.0,
+        }
+
+    counts = df.groupby("orbit_regime").size().sort_values(ascending=False)
+    orbit = str(counts.index[0])
+    count = int(counts.iloc[0])
+    total = max(int(counts.sum()), 1)
+    share = count / total * 100.0
+
+    return {
+        "orbit": orbit,
+        "count": count,
+        "share": share,
+    }
+
+
+def build_top_signal(df: pd.DataFrame) -> str:
+    if df.empty:
+        return "No strategic orbital signal is available under the current filters."
+
+    country = top_country_stats(df)
+    group = top_group_stats(df)
+    orbit = top_orbit_stats(df)
+
+    return (
+        f"{country['country_label']} accounts for roughly {country['share']:.0f}% of the filtered "
+        f"strategic orbital footprint, while {group['group']} remains the dominant mission layer "
+        f"and {orbit['orbit']} continues to define the main operating regime."
+    )
 
 
 def is_strategic_asset(name: str) -> bool:
@@ -745,7 +861,7 @@ def popup_html(row):
             </div>
             <table style="width:100%; border-collapse:collapse; font-size:12px;">
                 <tr><td style="padding:4px 0; color:#5a6d85;">Type</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("object_type") or "Unknown"))}</td></tr>
-                <tr><td style="padding:4px 0; color:#5a6d85;">Country</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("country") or "Unknown"))}</td></tr>
+                <tr><td style="padding:4px 0; color:#5a6d85;">Country</td><td style="padding:4px 0;">{html.escape(strategic_country_display(row.get("country") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Orbit</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("orbit_regime") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Group</td><td style="padding:4px 0;">{html.escape(safe_str(row.get("strategic_group") or "Unknown"))}</td></tr>
                 <tr><td style="padding:4px 0; color:#5a6d85;">Altitude</td><td style="padding:4px 0;">{float(row.get("altitude_km")):,.0f} km</td></tr>
@@ -848,9 +964,10 @@ def strategic_country_summary_table(df):
     summary = summary.merge(top_orbit[["country", "Main Orbit"]], left_on="Country", right_on="country", how="left").drop(columns=["country"])
 
     summary["Flag"] = summary["Country"].apply(country_code_to_flag)
+    summary["Country Label"] = summary["Country"].apply(strategic_country_display)
 
     summary = summary[
-        ["Flag", "Country", "Objects", "Top Group", "Main Orbit", "Example_Object"]
+        ["Flag", "Country", "Country Label", "Objects", "Top Group", "Main Orbit", "Example_Object"]
     ].rename(columns={"Example_Object": "Example Object"})
 
     return summary.sort_values(["Objects", "Country"], ascending=[False, True]).reset_index(drop=True)
@@ -869,7 +986,7 @@ def render_country_summary_table(df):
                 <td>
                     <div class="country-cell">
                         <span class="country-cell-flag">{html.escape(safe_str(row['Flag']))}</span>
-                        <span>{html.escape(safe_str(row['Country']))}</span>
+                        <span>{html.escape(safe_str(row['Country Label']))}</span>
                     </div>
                 </td>
                 <td><strong>{int(row['Objects']):,}</strong></td>
@@ -902,60 +1019,49 @@ def render_country_summary_table(df):
 
 def build_takeaways(df: pd.DataFrame) -> list[str]:
     if df.empty:
-        return ["No strategic objects match the current filters, so no geopolitical assessment can be generated yet."]
-
-    takeaways = []
+        return ["No strategic objects match the current filters, so no orbital signal can be generated yet."]
 
     country_counts = df.groupby("country").size().sort_values(ascending=False)
     group_counts = df.groupby("strategic_group").size().sort_values(ascending=False)
     orbit_counts = df.groupby("orbit_regime").size().sort_values(ascending=False)
 
-    total_count = int(country_counts.sum())
-    top_country = str(country_counts.index[0])
+    total_count = max(int(country_counts.sum()), 1)
+
+    top_country_code = str(country_counts.index[0])
+    top_country_label_value = strategic_country_display(top_country_code)
     top_country_count = int(country_counts.iloc[0])
-    top_country_share = (top_country_count / total_count * 100.0) if total_count else 0.0
+    top_country_share = top_country_count / total_count * 100.0
 
     top_group = str(group_counts.index[0])
-    top_group_count = int(group_counts.iloc[0])
-    top_group_share = (top_group_count / total_count * 100.0) if total_count else 0.0
+    top_group_share = int(group_counts.iloc[0]) / total_count * 100.0
 
     top_orbit = str(orbit_counts.index[0])
-    top_orbit_count = int(orbit_counts.iloc[0])
-    top_orbit_share = (top_orbit_count / total_count * 100.0) if total_count else 0.0
+    top_orbit_share = int(orbit_counts.iloc[0]) / total_count * 100.0
 
-    top_three_share = float(country_counts.head(3).sum() / total_count * 100.0) if total_count else 0.0
+    top_three_share = float(country_counts.head(3).sum() / total_count * 100.0)
 
-    takeaways.append(
-        f"Great-power competition remains concentrated in orbit: {top_country} holds the largest visible strategic footprint in this filtered picture with {top_country_count:,} tracked assets, or roughly {top_country_share:.0f}% of the monitored set."
-    )
-
-    takeaways.append(
-        f"The dominant operational layer is {top_group}, accounting for about {top_group_share:.0f}% of tracked systems, which indicates that the current orbital picture is being shaped most heavily by that mission set rather than by purely civilian or commercial activity."
-    )
-
-    takeaways.append(
-        f"{top_orbit} is the main orbital regime in view at roughly {top_orbit_share:.0f}% of tracked assets, giving the strongest clue about whether the present posture is weighted toward persistence, regional coverage, precision timing, or broad-area strategic surveillance."
-    )
-
-    takeaways.append(
-        f"Strategic concentration is high: the top three countries account for around {top_three_share:.0f}% of all filtered assets, reinforcing how much orbital power projection is still clustered among a small number of state actors."
-    )
+    takeaways = [
+        f"{top_country_label_value} holds the largest visible strategic orbital footprint in the current view, with {top_country_count:,} tracked assets ({top_country_share:.0f}% share).",
+        f"{top_group} is the dominant mission layer in the filtered set, shaping roughly {top_group_share:.0f}% of the visible strategic picture.",
+        f"{top_orbit} remains the main orbital regime in view, accounting for about {top_orbit_share:.0f}% of tracked assets and reinforcing a posture centered on persistent orbital presence.",
+        f"Strategic concentration remains high: the top three country groupings account for roughly {top_three_share:.0f}% of the filtered orbital footprint.",
+    ]
 
     if "Navigation" in group_counts.index:
         nav_count = int(group_counts["Navigation"])
-        nav_share = (nav_count / total_count * 100.0) if total_count else 0.0
+        nav_share = nav_count / total_count * 100.0
         takeaways.append(
-            f"Navigation resilience remains a core strategic layer, with navigation-linked constellations making up about {nav_share:.0f}% of the visible set — a reminder that timing, positioning, and guidance infrastructure underpins both civilian dependence and military effectiveness."
+            f"Navigation-linked systems make up about {nav_share:.0f}% of the visible set, preserving a critical resilience layer for timing, positioning, and guidance."
         )
 
-    if any(group in group_counts.index for group in ["Military / Intel", "Chinese Strategic", "Russian Strategic"]):
-        surveillance_related = sum(
-            int(group_counts.get(group, 0))
-            for group in ["Military / Intel", "Chinese Strategic", "Russian Strategic"]
-        )
-        surveillance_share = (surveillance_related / total_count * 100.0) if total_count else 0.0
+    surveillance_related = sum(
+        int(group_counts.get(group, 0))
+        for group in ["Military / Intel", "Chinese Strategic", "Russian Strategic"]
+    )
+    if surveillance_related > 0:
+        surveillance_share = surveillance_related / total_count * 100.0
         takeaways.append(
-            f"State-linked surveillance and military layers remain prominent, with intelligence-oriented and strategic government systems comprising about {surveillance_share:.0f}% of the current view, underscoring how orbital infrastructure supports ISR, missile warning, secure communications, and geopolitical signaling."
+            f"State surveillance and military-linked layers remain prominent, comprising about {surveillance_share:.0f}% of the filtered footprint."
         )
 
     return takeaways[:5]
@@ -965,7 +1071,7 @@ def top_country_label(df: pd.DataFrame) -> str:
     if df.empty:
         return "None"
     counts = df.groupby("country").size().sort_values(ascending=False)
-    return str(counts.index[0])
+    return strategic_country_display(str(counts.index[0]))
 
 
 def top_group_label(df: pd.DataFrame) -> str:
@@ -1024,20 +1130,6 @@ def top_country_cards_data(df: pd.DataFrame, limit: int = 4) -> pd.DataFrame:
 
 inject_styles()
 
-st.markdown(
-    """
-    <div class="hero-card">
-        <div class="hero-kicker">Strategic Orbital Watch</div>
-        <h1 class="hero-title">Strategic Space Watch</h1>
-        <p class="hero-copy">
-            Track state-linked orbital infrastructure and translate raw public space data into a clearer geopolitical picture
-            of military layers, navigation resilience, and state surveillance architecture.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 identity = st.secrets.get("SPACE_TRACK_IDENTITY")
 password = st.secrets.get("SPACE_TRACK_PASSWORD")
 
@@ -1081,6 +1173,28 @@ with st.spinner("Loading strategic orbital data..."):
 
 filtered_full_df = apply_filters(full_satellites_df, search_query, regimes)
 filtered_df = apply_filters(satellites_df, search_query, regimes)
+
+hero_top_signal = build_top_signal(filtered_full_df)
+
+st.markdown(
+    f"""
+    <div class="hero-card">
+        <div class="hero-kicker">Strategic Orbital Watch</div>
+        <h1 class="hero-title">Strategic Space Watch</h1>
+        <p class="hero-copy">
+            Track state-linked orbital infrastructure and turn live public catalogue data into a clearer picture of orbital power,
+            surveillance architecture, and resilience layers.
+        </p>
+        <div class="chip-row" style="margin-top:.85rem;">
+            <span class="chip">Top signal</span>
+        </div>
+        <div style="margin-top:.55rem; font-size:1.02rem; line-height:1.6; color:var(--text-main); font-weight:600;">
+            {html.escape(hero_top_signal)}
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 country_count = filtered_full_df["country"].nunique() if not filtered_full_df.empty else 0
 group_count = filtered_full_df["strategic_group"].nunique() if not filtered_full_df.empty else 0
@@ -1157,10 +1271,10 @@ takeaways = build_takeaways(filtered_full_df)
 st.markdown(
     """
     <div class="panel-card">
-        <div class="panel-title">Today's Key Takeaways</div>
+        <div class="panel-title">Strategic Signals</div>
         <div class="panel-copy">
-            A geopolitical reading of the current filtered orbital picture, focused on power concentration,
-            resilience layers, and state-linked surveillance architecture.
+            Fast-read conclusions from the current filtered orbital picture, focused on concentration of power,
+            dominant mission layers, and resilience-critical infrastructure.
         </div>
     </div>
     """,
@@ -1170,24 +1284,28 @@ st.markdown("<ul class='takeaway-list'>" + "".join([f"<li>{html.escape(x)}</li>"
 
 st.markdown("")
 
+country_stats = top_country_stats(filtered_full_df)
+group_stats = top_group_stats(filtered_full_df)
+orbit_stats = top_orbit_stats(filtered_full_df)
+
 insight_cols = st.columns(3)
 with insight_cols[0]:
     render_insight_card(
         "Largest footprint",
-        top_country_label(filtered_full_df),
-        "Country with the largest strategic orbital footprint in the current filtered set.",
+        country_stats["country_label"],
+        f"{country_stats['share']:.0f}% of the filtered strategic orbital footprint.",
     )
 with insight_cols[1]:
     render_insight_card(
         "Dominant strategic layer",
-        top_group_label(filtered_full_df),
-        "The most visible mission layer shaping the current strategic picture.",
+        group_stats["group"],
+        f"Most visible mission layer in the current view ({group_stats['share']:.0f}% share).",
     )
 with insight_cols[2]:
     render_insight_card(
         "Main orbital regime",
-        top_orbit_label(filtered_full_df),
-        "The regime most heavily represented across tracked strategic assets.",
+        orbit_stats["orbit"],
+        f"Primary operating regime across tracked strategic assets ({orbit_stats['share']:.0f}% share).",
     )
 
 st.markdown("")
@@ -1269,8 +1387,8 @@ with map_col:
         <div class="panel-card">
             <div class="panel-title">Orbital Distribution Map</div>
             <div class="panel-copy">
-                A live spatial sample of the current strategic orbital picture. This is intended to support the geopolitical readout above,
-                not replace it.
+                A live spatial sample of the current strategic orbital picture, showing where the filtered footprint is concentrated across
+                major orbital layers. Use this map to support the signal readout above, not to replace it.
             </div>
         </div>
         """,
@@ -1339,8 +1457,8 @@ with side_col:
         <div class="panel-card">
             <div class="panel-title">Why this matters</div>
             <div class="panel-copy">
-                Strategic constellations are not just technical assets. They underpin precision navigation, missile warning, secure communications,
-                reconnaissance, and national signaling. In practice, this layer helps reveal how states sustain power projection and resilience in orbit.
+                Strategic orbital systems are not just technical infrastructure. They underpin reconnaissance, secure communications, missile warning,
+                and precision navigation. Read together, they show how states sustain surveillance coverage, resilience, and power projection in orbit.
             </div>
         </div>
         """,
