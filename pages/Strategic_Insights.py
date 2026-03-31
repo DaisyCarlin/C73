@@ -1,3 +1,22 @@
+import streamlit as st
+
+st.set_page_config(
+    page_title="Satellite Activity",
+    page_icon="◉",
+    layout="wide",
+)
+
+# Hide the main "app" page from sidebar
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebarNav"] > ul > li:first-child {
+            display: none;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 from __future__ import annotations
 
