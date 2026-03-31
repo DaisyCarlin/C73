@@ -578,13 +578,12 @@ def build_main_headline(
         )
         if not biggest_increase_df.empty:
             row = biggest_increase_df.iloc[0]
-            if int(row["sensitive_count"]) > 0 and show_satellites and not satellite_summary_df.empty:
+            if show_satellites and not satellite_summary_df.empty:
                 return (
                     f"{country_label(row['country'])} rose fastest in launches this month, "
                     f"while {country_label(satellite_summary_df.iloc[0]['country'])} still holds the biggest orbital footprint."
                 )
-            if int(row["sensitive_count"]) > 0:
-                return f"{country_label(row['country'])} rose fastest in launches this month, suggesting a stronger state-linked launch tempo."
+            return f"{country_label(row['country'])} rose fastest in launches this month."
 
     if show_satellites and not satellite_summary_df.empty:
         row = satellite_summary_df.iloc[0]
@@ -691,88 +690,6 @@ def build_combined_signal_cards(
         )
 
     return cards[:5]
-
-
-def build_combined_trend_chart_df(
-    launch_summary_df: pd.DataFrame,
-    satellite_summary_df: pd.DataFrame,
-) -> pd.DataFrame:
-    if launch_summary_df.empty and satellite_summary_df.empty:
-        return pd.DataFrame()
-
-    launch_part = pd.DataFrame()
-    satellite_part = pd.DataFrame()
-
-    if not launch_summary_df.empty:
-        launch_part = launch_summary_df[["country", "previous_count", "current_count"]].copy()
-
-    if not satellite_summary_df.empty:
-        satellite_part = satellite_summary_df[["country", "current_count"]].copy()
-        satellite_part = satellite_part.rename(columns={"current_count": "satellite_count"})
-
-    if launch_part.empty and satellite_part.empty:
-        return pd.DataFrame()
-
-    if launch_part.empty:
-        merged = satellite_part.copy()
-        merged["previous_count"] = 0.0
-        merged["current_count"] = 0.0
-    elif satellite_part.empty:
-        merged = launch_part.copy()
-        merged["satellite_count"] = 0.0
-    else:
-        merged = pd.merge(launch_part, satellite_part, on="country", how="outer")
-
-    merged["previous_count"] = merged["previous_count"].fillna(0).astype(float)
-    merged["current_count"] = merged["current_count"].fillna(0).astype(float)
-    merged["satellite_count"] = merged["satellite_count"].fillna(0).astype(float)
-
-    merged["combined_score"] = (
-        merged["previous_count"] * 1.0
-        + merged["current_count"] * 1.5
-        + merged["satellite_count"] * 0.02
-    )
-
-    merged = merged.sort_values(["combined_score", "country"], ascending=[False, True]).head(3).copy()
-    if merged.empty:
-        return pd.DataFrame()
-
-    rows = []
-    for _, row in merged.iterrows():
-        country = country_label(row["country"])
-        raw_values = {
-            "Last Month Launches": float(row["previous_count"]),
-            "This Month Launches": float(row["current_count"]),
-            "Current Satellite Footprint": float(row["satellite_count"]),
-        }
-
-        max_value = max(raw_values.values()) if raw_values else 0.0
-        if max_value <= 0:
-            scaled_values = {k: 0.0 for k in raw_values}
-        else:
-            scaled_values = {k: (v / max_value) * 100.0 for k, v in raw_values.items()}
-
-        for stage, score in scaled_values.items():
-            rows.append(
-                {
-                    "Stage": stage,
-                    "Country": country,
-                    "Index Score": score,
-                }
-            )
-
-    chart_df = pd.DataFrame(rows)
-    if chart_df.empty:
-        return pd.DataFrame()
-
-    pivot_df = chart_df.pivot(index="Stage", columns="Country", values="Index Score")
-    stage_order = [
-        "Last Month Launches",
-        "This Month Launches",
-        "Current Satellite Footprint",
-    ]
-    pivot_df = pivot_df.reindex(stage_order)
-    return pivot_df
 
 
 # ----------------------------
@@ -884,8 +801,22 @@ top_metrics = st.columns(4)
 launch_current_total = int(current_launch_df.shape[0]) if not current_launch_df.empty else 0
 launch_previous_total = int(previous_launch_df.shape[0]) if not previous_launch_df.empty else 0
 satellite_total = int(filtered_satellite_df.shape[0]) if not filtered_satellite_df.empty else 0
-sensitive_launches = int(current_launch_df["sensitive"].sum()) if show_launches and not current_launch_df.empty else 0
-sensitive_satellites = int(filtered_satellite_df["sensitive"].sum()) if show_satellites and not filtered_satellite_df.empty else 0
+
+largest_rise_label = "—"
+largest_rise_value = "—"
+if not launch_summary_df.empty:
+    biggest_increase_df = launch_summary_df[launch_summary_df["absolute_change"] > 0].sort_values(
+        ["absolute_change", "pct_change", "current_count", "country"],
+        ascending=[False, False, False, True],
+    )
+    if not biggest_increase_df.empty:
+        mover = biggest_increase_df.iloc[0]
+        largest_rise_label = country_label(mover["country"])
+        largest_rise_value = f"+{int(mover['absolute_change'])}"
+
+largest_footprint = "—"
+if not satellite_summary_df.empty:
+    largest_footprint = country_label(satellite_summary_df.iloc[0]["country"])
 
 with top_metrics[0]:
     st.metric(
@@ -896,20 +827,21 @@ with top_metrics[0]:
 
 with top_metrics[1]:
     st.metric(
-        "Sensitive launches",
-        f"{sensitive_launches:,}" if show_launches else "—",
-    )
-
-with top_metrics[2]:
-    st.metric(
         "Tracked satellites",
         f"{satellite_total:,}" if show_satellites else "—",
     )
 
+with top_metrics[2]:
+    st.metric(
+        "Fastest launch rise",
+        largest_rise_value if show_launches else "—",
+        delta=largest_rise_label if show_launches else None,
+    )
+
 with top_metrics[3]:
     st.metric(
-        "Sensitive satellites",
-        f"{sensitive_satellites:,}" if show_satellites else "—",
+        "Largest footprint",
+        largest_footprint if show_satellites else "—",
     )
 
 st.markdown(
@@ -947,27 +879,3 @@ if signal_cards:
     for i, card in enumerate(signal_cards):
         with cols[i % 2]:
             render_signal_card(card["title"], card["main"], card["why"])
-
-trend_chart_df = build_combined_trend_chart_df(
-    launch_summary_df=launch_summary_df,
-    satellite_summary_df=satellite_summary_df,
-)
-
-st.markdown(
-    """
-    <div class="panel-card">
-        <div class="panel-title">Top country trend view</div>
-        <div class="panel-copy">
-            The top three countries or groupings across the combined picture, comparing last month’s launches,
-            this month’s launches, and the current satellite footprint.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if trend_chart_df.empty:
-    st.info("Not enough combined launch and satellite data is available to build the trend view.")
-else:
-    st.line_chart(trend_chart_df)
-    st.caption("Shown as an index score so launch counts and satellite footprint can be compared more clearly on one chart.")
