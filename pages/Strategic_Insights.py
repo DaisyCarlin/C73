@@ -578,20 +578,17 @@ def build_main_headline(
         )
         if not biggest_increase_df.empty:
             row = biggest_increase_df.iloc[0]
-            if int(row["sensitive_count"]) > 0:
+            if int(row["sensitive_count"]) > 0 and show_satellites and not satellite_summary_df.empty:
                 return (
-                    f"{country_label(row['country'])} saw the sharpest rise in launches this month, "
-                    f"while {country_label(satellite_summary_df.iloc[0]['country'])} still holds the biggest visible orbital footprint."
-                    if show_satellites and not satellite_summary_df.empty
-                    else f"{country_label(row['country'])} saw the sharpest rise in launches this month, suggesting a stronger state-linked launch tempo."
+                    f"{country_label(row['country'])} rose fastest in launches this month, "
+                    f"while {country_label(satellite_summary_df.iloc[0]['country'])} still holds the biggest orbital footprint."
                 )
+            if int(row["sensitive_count"]) > 0:
+                return f"{country_label(row['country'])} rose fastest in launches this month, suggesting a stronger state-linked launch tempo."
 
     if show_satellites and not satellite_summary_df.empty:
         row = satellite_summary_df.iloc[0]
-        return (
-            f"{country_label(row['country'])} still has the largest visible satellite footprint, "
-            f"indicating the broadest orbital presence in the current view."
-        )
+        return f"{country_label(row['country'])} still has the largest visible satellite footprint in the current view."
 
     return "No strong combined signal stands out yet in the current filters."
 
@@ -600,7 +597,6 @@ def build_combined_signal_cards(
     show_launches: bool,
     show_satellites: bool,
     launch_summary_df: pd.DataFrame,
-    current_launch_df: pd.DataFrame,
     satellite_summary_df: pd.DataFrame,
 ) -> list[dict]:
     cards: list[dict] = []
@@ -632,6 +628,7 @@ def build_combined_signal_cards(
 
     if show_satellites and not satellite_summary_df.empty and int(satellite_summary_df["current_count"].sum()) > 0:
         sat_leader = satellite_summary_df.iloc[0]
+
         sensitive_sat_df = satellite_summary_df[satellite_summary_df["sensitive_count"] > 0].sort_values(
             ["sensitive_share", "sensitive_count", "country"],
             ascending=[False, False, True],
@@ -643,14 +640,8 @@ def build_combined_signal_cards(
         cards.append(
             {
                 "title": "Launch tempo",
-                "main": (
-                    f"{country_label(launch_riser['country'])} rose fastest this month, up "
-                    f"{int(launch_riser['absolute_change'])} launches."
-                ),
-                "why": (
-                    f"This may suggest a stronger short-term mission tempo and can be linked to "
-                    f"{safe_text(launch_riser['top_subcategory']).lower()} activity."
-                ),
+                "main": f"{country_label(launch_riser['country'])} rose fastest this month, up {int(launch_riser['absolute_change'])} launches.",
+                "why": f"This may suggest stronger short-term mission tempo and can be linked to {safe_text(launch_riser['top_subcategory']).lower()} activity.",
             }
         )
 
@@ -658,11 +649,8 @@ def build_combined_signal_cards(
         cards.append(
             {
                 "title": "Orbital scale",
-                "main": f"{country_label(sat_leader['country'])} still has the largest visible satellite footprint.",
-                "why": (
-                    f"This can be linked to broader long-term orbital presence, led mainly by "
-                    f"{safe_text(sat_leader['top_subcategory']).lower()} systems."
-                ),
+                "main": f"{country_label(sat_leader['country'])} still has the biggest visible satellite footprint.",
+                "why": f"This can be linked to broader long-term orbital presence, led mainly by {safe_text(sat_leader['top_subcategory']).lower()} systems.",
             }
         )
 
@@ -671,10 +659,7 @@ def build_combined_signal_cards(
             {
                 "title": "Sensitive launch signal",
                 "main": f"{country_label(sensitive_launch_leader['country'])} stands out most clearly in sensitive launches.",
-                "why": (
-                    f"{sensitive_launch_leader['sensitive_share']:.0f}% of its current-month launches were flagged sensitive, "
-                    f"suggesting more state-linked activity."
-                ),
+                "why": f"{sensitive_launch_leader['sensitive_share']:.0f}% of its current-month launches were flagged sensitive, suggesting more state-linked activity.",
             }
         )
 
@@ -683,9 +668,7 @@ def build_combined_signal_cards(
             {
                 "title": "Sensitive orbital layer",
                 "main": f"{country_label(sat_sensitive_leader['country'])} has the highest sensitive-share in the current footprint.",
-                "why": (
-                    f"This may point to a more strategic or military-linked orbital layer rather than a mainly routine one."
-                ),
+                "why": "This may point to a more strategic or military-linked orbital layer rather than a mainly routine one.",
             }
         )
 
@@ -693,13 +676,8 @@ def build_combined_signal_cards(
         cards.append(
             {
                 "title": "Combined read",
-                "main": (
-                    f"{country_label(launch_riser['country'])} is moving fastest in launches, "
-                    f"while {country_label(sat_leader['country'])} still leads in orbital scale."
-                ),
-                "why": (
-                    "That suggests short-term launch movement and long-term orbital presence are not being led by the same actor."
-                ),
+                "main": f"{country_label(launch_riser['country'])} is moving fastest in launches, while {country_label(sat_leader['country'])} still leads in orbital scale.",
+                "why": "That suggests short-term launch movement and long-term orbital presence are not being led by the same actor.",
             }
         )
 
@@ -715,42 +693,86 @@ def build_combined_signal_cards(
     return cards[:5]
 
 
-def build_changes_bullets(
-    show_launches: bool,
-    show_satellites: bool,
+def build_combined_trend_chart_df(
     launch_summary_df: pd.DataFrame,
-    current_launch_df: pd.DataFrame,
-    previous_launch_df: pd.DataFrame,
     satellite_summary_df: pd.DataFrame,
-) -> list[str]:
-    bullets: list[str] = []
+) -> pd.DataFrame:
+    if launch_summary_df.empty and satellite_summary_df.empty:
+        return pd.DataFrame()
 
-    if show_launches:
-        launch_current_total = int(current_launch_df.shape[0]) if not current_launch_df.empty else 0
-        launch_previous_total = int(previous_launch_df.shape[0]) if not previous_launch_df.empty else 0
-        bullets.append(f"Launches this month: {launch_current_total:,} ({launch_current_total - launch_previous_total:+,} vs previous month)")
+    launch_part = pd.DataFrame()
+    satellite_part = pd.DataFrame()
 
-        if not launch_summary_df.empty and int(launch_summary_df["current_count"].sum()) > 0:
-            biggest_increase_df = launch_summary_df[launch_summary_df["absolute_change"] > 0].sort_values(
-                ["absolute_change", "pct_change", "current_count", "country"],
-                ascending=[False, False, False, True],
+    if not launch_summary_df.empty:
+        launch_part = launch_summary_df[["country", "previous_count", "current_count"]].copy()
+
+    if not satellite_summary_df.empty:
+        satellite_part = satellite_summary_df[["country", "current_count"]].copy()
+        satellite_part = satellite_part.rename(columns={"current_count": "satellite_count"})
+
+    if launch_part.empty and satellite_part.empty:
+        return pd.DataFrame()
+
+    if launch_part.empty:
+        merged = satellite_part.copy()
+        merged["previous_count"] = 0.0
+        merged["current_count"] = 0.0
+    elif satellite_part.empty:
+        merged = launch_part.copy()
+        merged["satellite_count"] = 0.0
+    else:
+        merged = pd.merge(launch_part, satellite_part, on="country", how="outer")
+
+    merged["previous_count"] = merged["previous_count"].fillna(0).astype(float)
+    merged["current_count"] = merged["current_count"].fillna(0).astype(float)
+    merged["satellite_count"] = merged["satellite_count"].fillna(0).astype(float)
+
+    merged["combined_score"] = (
+        merged["previous_count"] * 1.0
+        + merged["current_count"] * 1.5
+        + merged["satellite_count"] * 0.02
+    )
+
+    merged = merged.sort_values(["combined_score", "country"], ascending=[False, True]).head(3).copy()
+    if merged.empty:
+        return pd.DataFrame()
+
+    rows = []
+    for _, row in merged.iterrows():
+        country = country_label(row["country"])
+        raw_values = {
+            "Last Month Launches": float(row["previous_count"]),
+            "This Month Launches": float(row["current_count"]),
+            "Current Satellite Footprint": float(row["satellite_count"]),
+        }
+
+        max_value = max(raw_values.values()) if raw_values else 0.0
+        if max_value <= 0:
+            scaled_values = {k: 0.0 for k in raw_values}
+        else:
+            scaled_values = {k: (v / max_value) * 100.0 for k, v in raw_values.items()}
+
+        for stage, score in scaled_values.items():
+            rows.append(
+                {
+                    "Stage": stage,
+                    "Country": country,
+                    "Index Score": score,
+                }
             )
-            if not biggest_increase_df.empty:
-                mover = biggest_increase_df.iloc[0]
-                bullets.append(f"Fastest launch rise: {country_label(mover['country'])} (+{int(mover['absolute_change'])})")
 
-        sensitive_launches = int(current_launch_df["sensitive"].sum()) if not current_launch_df.empty else 0
-        bullets.append(f"Sensitive launches this month: {sensitive_launches:,}")
+    chart_df = pd.DataFrame(rows)
+    if chart_df.empty:
+        return pd.DataFrame()
 
-    if show_satellites:
-        satellite_total = int(satellite_summary_df["current_count"].sum()) if not satellite_summary_df.empty else 0
-        bullets.append(f"Tracked satellites in current view: {satellite_total:,}")
-
-        if not satellite_summary_df.empty:
-            sat_leader = satellite_summary_df.iloc[0]
-            bullets.append(f"Largest orbital footprint: {country_label(sat_leader['country'])}")
-
-    return bullets[:5]
+    pivot_df = chart_df.pivot(index="Stage", columns="Country", values="Index Score")
+    stage_order = [
+        "Last Month Launches",
+        "This Month Launches",
+        "Current Satellite Footprint",
+    ]
+    pivot_df = pivot_df.reindex(stage_order)
+    return pivot_df
 
 
 # ----------------------------
@@ -905,7 +927,6 @@ signal_cards = build_combined_signal_cards(
     show_launches=show_launches,
     show_satellites=show_satellites,
     launch_summary_df=launch_summary_df,
-    current_launch_df=current_launch_df,
     satellite_summary_df=satellite_summary_df,
 )
 
@@ -927,26 +948,26 @@ if signal_cards:
         with cols[i % 2]:
             render_signal_card(card["title"], card["main"], card["why"])
 
-changes = build_changes_bullets(
-    show_launches=show_launches,
-    show_satellites=show_satellites,
+trend_chart_df = build_combined_trend_chart_df(
     launch_summary_df=launch_summary_df,
-    current_launch_df=current_launch_df,
-    previous_launch_df=previous_launch_df,
     satellite_summary_df=satellite_summary_df,
 )
 
-if changes:
-    st.markdown(
-        """
-        <div class="panel-card">
-            <div class="panel-title">What changed</div>
-            <div class="panel-copy">
-                The clearest current changes from the combined view.
-            </div>
+st.markdown(
+    """
+    <div class="panel-card">
+        <div class="panel-title">Top country trend view</div>
+        <div class="panel-copy">
+            The top three countries or groupings across the combined picture, comparing last month’s launches,
+            this month’s launches, and the current satellite footprint.
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    for bullet in changes:
-        st.markdown(f"- {bullet}.")
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+if trend_chart_df.empty:
+    st.info("Not enough combined launch and satellite data is available to build the trend view.")
+else:
+    st.line_chart(trend_chart_df)
+    st.caption("Shown as an index score so launch counts and satellite footprint can be compared more clearly on one chart.")
