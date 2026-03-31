@@ -1,12 +1,15 @@
+from __future__ import annotations
+
+from __future__ import annotations
+
 import streamlit as st
 
 st.set_page_config(
-    page_title="Satellite Activity",
+    page_title="Strategic Insights",
     page_icon="◉",
     layout="wide",
 )
 
-# Hide the main "app" page from sidebar
 st.markdown(
     """
     <style>
@@ -18,7 +21,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-from __future__ import annotations
+st.title("Strategic Insights")
 
 import time
 from datetime import datetime, timezone
