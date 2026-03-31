@@ -294,7 +294,7 @@ def build_session():
     adapter = HTTPAdapter(max_retries=retry, pool_connections=4, pool_maxsize=4)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
-    session.headers.update({"User-Agent": "SignalConsoleHome/1.0"})
+    session.headers.update({"User-Agent": "C73ConsoleHome/1.0"})
     return session
 
 
@@ -670,7 +670,7 @@ st.markdown(
     f"""
 <div class="hero-card">
     <div class="hero-kicker">Command Home</div>
-    <div class="hero-title">Signal Console</div>
+    <div class="hero-title">C73 Console</div>
     <div class="hero-copy" style="margin-top:.75rem;">
         Open-source orbital intelligence workspace focused on launches, satellite activity,
         and the sensitive signals that matter most.
@@ -759,7 +759,7 @@ st.markdown(
 <div class="purpose-card">
     <div class="purpose-label">Platform Purpose</div>
     <div class="purpose-copy">
-        Signal Console is designed to show the most striking live orbital signal first, then route the user into the right page for deeper analysis.
+        C73 Console is designed to show the most striking live orbital signal first, then route the user into the right page for deeper analysis.
     </div>
 </div>
 """,
