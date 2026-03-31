@@ -105,7 +105,6 @@ st.markdown(
 
     .hero-card,
     .highlight-card,
-    .module-card,
     .purpose-card {
         border: 1px solid var(--stroke);
         border-radius: 22px;
@@ -137,7 +136,6 @@ st.markdown(
 
     .hero-copy,
     .section-copy,
-    .module-copy,
     .purpose-copy {
         color: var(--text-soft);
         font-size: .96rem;
@@ -156,10 +154,9 @@ st.markdown(
         margin-bottom: .18rem;
     }
 
-    .highlight-card,
-    .module-card {
+    .highlight-card {
         padding: 1rem;
-        min-height: 245px;
+        min-height: 285px;
     }
 
     .highlight-eyebrow {
@@ -199,20 +196,6 @@ st.markdown(
     .tone-blue .accent-bar { background: var(--cyan); }
     .tone-amber .accent-bar { background: var(--amber); }
     .tone-red .accent-bar { background: var(--red); }
-
-    .module-title {
-        color: var(--text-main);
-        font-size: 1.08rem;
-        font-weight: 760;
-        margin-bottom: .55rem;
-    }
-
-    .module-bullet {
-        color: #c2d4e6;
-        font-size: .92rem;
-        line-height: 1.55;
-        margin: .18rem 0;
-    }
 
     .purpose-card {
         padding: 1rem;
@@ -476,6 +459,8 @@ def build_launch_highlight(launch_df: pd.DataFrame) -> dict:
                 "Open the launch page for a deeper check.",
             ],
             "tone": "amber",
+            "key": "launch",
+            "button": "Open Launch Intelligence",
         }
 
     sensitive_df = launch_df[launch_df["sensitive"] == True].copy()
@@ -490,6 +475,8 @@ def build_launch_highlight(launch_df: pd.DataFrame) -> dict:
                 "Open the launch page to inspect the full queue and mission labels.",
             ],
             "tone": "blue",
+            "key": "launch",
+            "button": "Open Launch Intelligence",
         }
 
     country_counts = sensitive_df.groupby("country").size().sort_values(ascending=False)
@@ -513,6 +500,8 @@ def build_launch_highlight(launch_df: pd.DataFrame) -> dict:
             "That suggests the upcoming launch picture is not purely routine commercial traffic.",
         ],
         "tone": "amber",
+        "key": "launch",
+        "button": "Open Launch Intelligence",
     }
 
 
@@ -526,6 +515,8 @@ def build_satellite_highlight(sat_df: pd.DataFrame) -> dict:
                 "Open the satellite page for a deeper check.",
             ],
             "tone": "red",
+            "key": "satellite",
+            "button": "Open Satellite Watch",
         }
 
     sensitive_df = sat_df[sat_df["sensitive"] == True].copy()
@@ -540,6 +531,8 @@ def build_satellite_highlight(sat_df: pd.DataFrame) -> dict:
                 "Open the satellite page to inspect the full category mix.",
             ],
             "tone": "blue",
+            "key": "satellite",
+            "button": "Open Satellite Watch",
         }
 
     country_counts = sensitive_df.groupby("country").size().sort_values(ascending=False)
@@ -563,6 +556,8 @@ def build_satellite_highlight(sat_df: pd.DataFrame) -> dict:
             "That points to a concentrated strategic orbital layer rather than a widely distributed one.",
         ],
         "tone": "red",
+        "key": "satellite",
+        "button": "Open Satellite Watch",
     }
 
 
@@ -573,9 +568,11 @@ def build_strategic_highlight(launch_df: pd.DataFrame, sat_df: pd.DataFrame) -> 
             "title": "No combined strategic signal is available right now.",
             "lines": [
                 "Both live feeds need to load for the strongest homepage readout.",
-                "Open the individual modules to inspect them directly.",
+                "Open the individual pages to inspect them directly.",
             ],
             "tone": "blue",
+            "key": "strategic",
+            "button": "Open Strategic Insights",
         }
 
     launch_sensitive = launch_df[launch_df["sensitive"] == True].copy() if not launch_df.empty else pd.DataFrame()
@@ -599,6 +596,8 @@ def build_strategic_highlight(launch_df: pd.DataFrame, sat_df: pd.DataFrame) -> 
                 "This is the clearest cross-page strategic signal on the platform right now.",
             ],
             "tone": "blue",
+            "key": "strategic",
+            "button": "Open Strategic Insights",
         }
 
     if launch_country and sat_country and launch_country == sat_country:
@@ -610,6 +609,8 @@ def build_strategic_highlight(launch_df: pd.DataFrame, sat_df: pd.DataFrame) -> 
                 "Open Strategic Insights to see the fuller cross-page read.",
             ],
             "tone": "amber",
+            "key": "strategic",
+            "button": "Open Strategic Insights",
         }
 
     if sat_country:
@@ -621,6 +622,8 @@ def build_strategic_highlight(launch_df: pd.DataFrame, sat_df: pd.DataFrame) -> 
                 "That may point to persistent infrastructure mattering more than immediate launch movement.",
             ],
             "tone": "blue",
+            "key": "strategic",
+            "button": "Open Strategic Insights",
         }
 
     return {
@@ -631,33 +634,10 @@ def build_strategic_highlight(launch_df: pd.DataFrame, sat_df: pd.DataFrame) -> 
             "Open the launch and strategic pages for the full breakdown.",
         ],
         "tone": "amber",
+        "key": "strategic",
+        "button": "Open Strategic Insights",
     }
 
-
-# ----------------------------
-# MODULE CARDS
-# ----------------------------
-
-MODULE_CARDS = [
-    {
-        "title": "Launch Intelligence",
-        "description": "Monitor upcoming launches, recent mission outcomes, and state-linked launch signals.",
-        "bullets": ["Upcoming launches", "Recent failures", "Sensitive mission watch"],
-        "key": "launch",
-    },
-    {
-        "title": "Satellite Watch",
-        "description": "Monitor live orbital infrastructure and identify strategic or military-linked systems.",
-        "bullets": ["Orbital footprint", "Strategic assets", "Sensitive layer tracking"],
-        "key": "satellite",
-    },
-    {
-        "title": "Strategic Insights",
-        "description": "Turn launch and orbital data into a clearer geopolitical read of what matters.",
-        "bullets": ["Key signals", "Country shifts", "Cross-page strategic read"],
-        "key": "strategic",
-    },
-]
 
 # ----------------------------
 # PAGE
@@ -737,40 +717,9 @@ for col, card in zip(highlight_cols, highlight_cards):
             unsafe_allow_html=True,
         )
 
-st.markdown(
-    """
-<div class="section-wrap">
-    <div class="section-title">Modules</div>
-    <div class="section-copy">
-        Move from the command view into the live launch page, the satellite page, or the combined strategic readout.
-    </div>
-</div>
-""",
-    unsafe_allow_html=True,
-)
-
-module_cols = st.columns(3, gap="large")
-
-for col, card in zip(module_cols, MODULE_CARDS):
-    with col:
-        bullets_html = "".join([f"<div class='module-bullet'>• {b}</div>" for b in card["bullets"]])
-
-        st.markdown(
-            f"""
-        <div class="module-card">
-            <div class="module-title">{card['title']}</div>
-            <div class="module-copy">{card['description']}</div>
-            <div style="margin-top:.85rem;">
-                {bullets_html}
-            </div>
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
         st.page_link(
             PAGE_PATHS[card["key"]],
-            label=f"Open {card['title']}",
+            label=card["button"],
         )
 
 st.markdown(
@@ -778,7 +727,7 @@ st.markdown(
 <div class="purpose-card">
     <div class="purpose-label">Platform Purpose</div>
     <div class="purpose-copy">
-        Signal Console is designed to show the most striking live orbital signal first, then route the user into the right module for deeper analysis.
+        Signal Console is designed to show the most striking live orbital signal first, then route the user into the right page for deeper analysis.
     </div>
 </div>
 """,
