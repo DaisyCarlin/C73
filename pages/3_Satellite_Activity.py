@@ -110,6 +110,7 @@ def inject_styles():
                 background:var(--panel-bg);
                 padding:1rem 1rem .95rem 1rem;
                 min-height:132px;
+                margin-bottom:.7rem;
             }
 
             .hero-kicker {
@@ -163,17 +164,6 @@ def inject_styles():
                 font-weight:700;
                 margin-bottom:.25rem;
                 color:var(--text-main);
-            }
-
-            .takeaway-list {
-                margin:0;
-                padding-left:1.15rem;
-                color:var(--text-main);
-            }
-
-            .takeaway-list li {
-                margin:.6rem 0;
-                line-height:1.55;
             }
 
             .chip-row {
@@ -271,22 +261,6 @@ def orbit_regime(altitude_km):
     if altitude_km <= 37000:
         return "GEO"
     return "HEO"
-
-
-def country_code_to_flag(code: str) -> str:
-    code = safe_str(code).upper()
-    if not code or len(code) != 2 or not code.isalpha():
-        fallback = {
-            "US": "🇺🇸",
-            "RU": "🇷🇺",
-            "CN": "🇨🇳",
-            "IN": "🇮🇳",
-            "JP": "🇯🇵",
-            "FR": "🇫🇷",
-            "GB": "🇬🇧",
-        }
-        return fallback.get(code, "🌐")
-    return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
 
 
 def strategic_country_display(code: str) -> str:
@@ -703,7 +677,7 @@ def create_map(df, map_theme, show_labels):
 
 def build_takeaways(df: pd.DataFrame) -> list[str]:
     if df.empty:
-        return ["No strategic objects match the current filters."]
+        return ["No strategic satellites match the current filters."]
 
     country_counts = df.groupby("country").size().sort_values(ascending=False)
     group_counts = df.groupby("strategic_group").size().sort_values(ascending=False)
@@ -724,21 +698,21 @@ def build_takeaways(df: pd.DataFrame) -> list[str]:
 
     top_three_share = float(country_counts.head(3).sum() / total_count * 100.0)
 
-    takeaways = [
-        f"{top_country_name} has the biggest footprint in this view with {top_country_count:,} tracked assets ({top_country_share:.0f}% share).",
-        f"{top_group_name} is the biggest group in the filtered set ({top_group_share:.0f}% share).",
-        f"{top_orbit_name} is the main orbit in view ({top_orbit_share:.0f}% share).",
+    signals = [
+        f"{top_country_name} has the biggest footprint in this view with {top_country_count:,} satellites ({top_country_share:.0f}%).",
+        f"{top_group_name} is the biggest group in the current set ({top_group_share:.0f}%).",
+        f"{top_orbit_name} is the main orbit in view ({top_orbit_share:.0f}%).",
         f"The top three country groupings make up about {top_three_share:.0f}% of the filtered footprint.",
     ]
 
     if "Navigation" in group_counts.index:
         nav_count = int(group_counts["Navigation"])
         nav_share = nav_count / total_count * 100.0
-        takeaways.append(
-            f"Navigation systems are about {nav_share:.0f}% of the visible set and remain important for timing and positioning."
+        signals.append(
+            f"Navigation systems make up about {nav_share:.0f}% of the visible set."
         )
 
-    return takeaways[:5]
+    return signals[:5]
 
 
 inject_styles()
@@ -877,21 +851,33 @@ st.markdown(
 st.markdown("")
 
 takeaways = build_takeaways(filtered_full_df)
+
 st.markdown(
     """
     <div class="panel-card">
         <div class="panel-title">Key signals</div>
         <div class="panel-copy">
-            A quick read of the current filtered orbital picture.
+            The main points from the current filtered satellite picture.
         </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-st.markdown(
-    "<ul class='takeaway-list'>" + "".join([f"<li>{html.escape(x)}</li>" for x in takeaways]) + "</ul>",
-    unsafe_allow_html=True,
+
+signal_html = "".join(
+    [
+        f"""
+        <div class="insight-card" style="min-height:auto;">
+            <div class="insight-copy" style="color:var(--text-main); font-size:1rem; line-height:1.65; font-weight:600;">
+                {html.escape(signal)}
+            </div>
+        </div>
+        """
+        for signal in takeaways
+    ]
 )
+
+st.markdown(signal_html, unsafe_allow_html=True)
 
 st.markdown("")
 
