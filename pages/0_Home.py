@@ -18,8 +18,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("C7 Console")
-st.caption("Global orbital and strategic intelligence platform.")
 
 import time
 from datetime import datetime, timezone
@@ -31,7 +29,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 st.set_page_config(
-    page_title="Signal Console",
+    page_title="C73 Console",
     page_icon="◉",
     layout="wide",
 )
