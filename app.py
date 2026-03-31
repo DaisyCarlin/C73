@@ -1,7 +1,3 @@
-Here’s the full updated code with:
-	•	the extra sentence removed from the strategic card
-	•	the red dot removed from the “Today’s Key Signals” heading
-	•	a small safety fix so it won’t break if a highlight ever comes back empty
 
 import time
 from datetime import datetime, timezone
